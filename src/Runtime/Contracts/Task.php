@@ -8,5 +8,8 @@ interface Task
 {
     public function name(): string;
 
+    /**
+     * @return array<string, mixed>
+     */
     public function payload(): array;
 }
