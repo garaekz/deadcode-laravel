@@ -2,80 +2,61 @@
 
 declare(strict_types=1);
 
-use Deadcode\Runtime\AppSnapshot;
-use Deadcode\Runtime\RouteAction;
-use Deadcode\Runtime\RouteBinding;
-use Deadcode\Runtime\RouteSnapshot;
-use Deadcode\Runtime\RuntimeSnapshot;
+use Deadcode\Runtime\Contracts\Task;
+use Deadcode\Runtime\TaskResult;
 
-it('serializes runtime contracts into the deadcode wire shape', function (): void {
-    $snapshot = new RuntimeSnapshot(
-        app: new AppSnapshot(
-            basePath: 'C:/work/app',
-            laravelVersion: '12.0.0',
-            phpVersion: '8.4.0',
-            appEnv: 'testing',
-        ),
-        routes: [
-            new RouteSnapshot(
-                routeId: 'users.index',
-                methods: ['GET'],
-                uri: 'users',
-                domain: null,
-                name: 'users.index',
-                prefix: null,
-                middleware: ['web'],
-                where: ['team' => '[0-9]+'],
-                defaults: ['locale' => 'en'],
-                bindings: [
-                    new RouteBinding(
-                        parameter: 'user',
-                        kind: 'implicit',
-                        targetFqcn: 'App\\Models\\User',
-                        isImplicit: true,
-                    ),
-                ],
-                action: new RouteAction(
-                    kind: 'controller_method',
-                    fqcn: 'App\\Http\\Controllers\\UserController',
-                    method: 'index',
-                ),
-            ),
-        ],
-    );
+it('serializes the runtime task contract baseline', function (): void {
+    $task = new class implements Task
+    {
+        public function name(): string
+        {
+            return 'runtime.serialize';
+        }
 
-    expect($snapshot->toArray())->toMatchArray([
-        'app' => [
+        public function payload(): array
+        {
+            return [
+                'basePath' => 'C:/work/app',
+                'include' => ['routes', 'commands'],
+            ];
+        }
+    };
+
+    expect($task->name())->toBe('runtime.serialize')
+        ->and($task->payload())->toBe([
             'basePath' => 'C:/work/app',
-            'laravelVersion' => '12.0.0',
-            'phpVersion' => '8.4.0',
-            'appEnv' => 'testing',
-        ],
-        'routes' => [
-            [
-                'routeId' => 'users.index',
-                'methods' => ['GET'],
-                'uri' => 'users',
-                'domain' => null,
-                'name' => 'users.index',
-                'prefix' => null,
-                'middleware' => ['web'],
-                'where' => ['team' => '[0-9]+'],
-                'defaults' => ['locale' => 'en'],
-                'bindings' => [
-                    [
-                        'parameter' => 'user',
-                        'kind' => 'implicit',
-                        'targetFqcn' => 'App\\Models\\User',
-                        'isImplicit' => true,
-                    ],
-                ],
-                'action' => [
-                    'kind' => 'controller_method',
-                    'fqcn' => 'App\\Http\\Controllers\\UserController',
-                    'method' => 'index',
+            'include' => ['routes', 'commands'],
+        ]);
+});
+
+it('serializes the runtime task result baseline', function (): void {
+    $result = new TaskResult(
+        status: 'ok',
+        data: [
+            'routes' => [
+                [
+                    'method' => 'GET',
+                    'uri' => 'users',
                 ],
             ],
         ],
-    ]);
+        meta: [
+            'durationMs' => 12,
+            'source' => 'laravel',
+        ],
+    );
+
+    expect($result->status)->toBe('ok')
+        ->and($result->data)->toBe([
+            'routes' => [
+                [
+                    'method' => 'GET',
+                    'uri' => 'users',
+                ],
+            ],
+        ])
+        ->and($result->meta)->toBe([
+            'durationMs' => 12,
+            'source' => 'laravel',
+        ]);
 });
