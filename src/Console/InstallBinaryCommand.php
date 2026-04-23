@@ -14,21 +14,21 @@ use Symfony\Component\Process\Process;
 
 final class InstallBinaryCommand extends Command
 {
-    protected $signature = 'oxcribe:install-binary
+    protected $signature = 'deadcode:install-binary
         {version? : Release version or tag to install}
         {--path= : Install destination relative to the app base path}
         {--os= : Override operating system (linux, darwin, windows)}
         {--arch= : Override CPU architecture (amd64, arm64)}
-        {--source-root= : Build oxinfer from a local source checkout}
+        {--source-root= : Build deadcore from a local source checkout}
         {--prefer-source : Prefer building from local source when one is configured}
         {--force : Replace an existing binary at the destination}';
 
-    protected $description = 'Download and install the matching oxinfer binary for this machine';
+    protected $description = 'Download and install the matching deadcore binary for this machine';
 
     public function handle(): int
     {
         try {
-            $config = (array) config('oxcribe.oxinfer', []);
+            $config = (array) config('oxcribe.deadcore', []);
             $release = (array) ($config['release'] ?? []);
             $tag = $this->resolveTag($this->argument('version'), $release);
             $os = $this->resolveOperatingSystem($this->option('os'));
@@ -38,7 +38,7 @@ final class InstallBinaryCommand extends Command
             $sourceRoot = $this->resolveSourceRoot($this->option('source-root'), $config);
 
             $installPath = $this->resolveInstallPath(
-                (string) ($this->option('path') ?: ($config['install_path'] ?? 'bin/oxinfer')),
+                (string) ($this->option('path') ?: ($config['install_path'] ?? 'bin/deadcore')),
                 $os,
             );
 
@@ -51,7 +51,7 @@ final class InstallBinaryCommand extends Command
 
             if ($repository === '') {
                 if ($sourceRoot === null) {
-                    throw new RuntimeException('Missing oxcribe.oxinfer.release.repository / OXINFER_RELEASE_REPOSITORY.');
+                    throw new RuntimeException('Missing oxcribe.deadcore.release.repository / DEADCORE_RELEASE_REPOSITORY.');
                 }
 
                 $this->buildFromSource($sourceRoot, $installPath, $os);
@@ -77,7 +77,7 @@ final class InstallBinaryCommand extends Command
                 }
 
                 $this->warn($exception->getMessage());
-                $this->line(sprintf('Falling back to local oxinfer source at %s...', $sourceRoot));
+                $this->line(sprintf('Falling back to local deadcore source at %s...', $sourceRoot));
                 $this->buildFromSource($sourceRoot, $installPath, $os);
             }
 
@@ -166,7 +166,7 @@ final class InstallBinaryCommand extends Command
         $trimmed = trim($path);
 
         if ($trimmed === '') {
-            throw new RuntimeException('Install path is empty. Set OXINFER_INSTALL_PATH or pass --path.');
+            throw new RuntimeException('Install path is empty. Set DEADCORE_INSTALL_PATH or pass --path.');
         }
 
         $resolved = $this->isAbsolutePath($trimmed)
@@ -183,7 +183,7 @@ final class InstallBinaryCommand extends Command
     private function assetName(string $tag, string $os, string $arch): string
     {
         return sprintf(
-            'oxinfer_%s_%s_%s%s',
+            'deadcore_%s_%s_%s%s',
             $tag,
             $os,
             $arch,
@@ -237,7 +237,7 @@ final class InstallBinaryCommand extends Command
         }
 
         $this->writeInstalledBinary($installPath, $os, $binaryContents);
-        $this->info(sprintf('Installed oxinfer %s to %s', $tag, $installPath));
+        $this->info(sprintf('Installed deadcore %s to %s', $tag, $installPath));
     }
 
     private function buildFromSource(string $sourceRoot, string $installPath, string $os): void
@@ -249,7 +249,7 @@ final class InstallBinaryCommand extends Command
 
         if ($cargoBinary === null) {
             throw new RuntimeException(
-                'Unable to build oxinfer from source because the `cargo` executable is not available on PATH.'
+                'Unable to build deadcore from source because the `cargo` executable is not available on PATH.'
             );
         }
 
@@ -258,14 +258,14 @@ final class InstallBinaryCommand extends Command
             $command[] = '--locked';
         }
 
-        $this->line(sprintf('Building oxinfer from source at %s...', $sourceRoot));
+        $this->line(sprintf('Building deadcore from source at %s...', $sourceRoot));
 
         $build = new Process($command, $sourceRoot, null, null, 300);
         $build->run();
 
         if (! $build->isSuccessful()) {
             throw new RuntimeException(sprintf(
-                "Unable to build oxinfer from source at %s.\n%s",
+                "Unable to build deadcore from source at %s.\n%s",
                 $sourceRoot,
                 trim($build->getErrorOutput() !== '' ? $build->getErrorOutput() : $build->getOutput()),
             ));
@@ -274,28 +274,28 @@ final class InstallBinaryCommand extends Command
         $builtBinary = $this->builtBinaryPath($sourceRoot, $os);
         if (! is_file($builtBinary)) {
             throw new RuntimeException(sprintf(
-                'Cargo build completed, but the expected oxinfer binary was not found at "%s".',
+                'Cargo build completed, but the expected deadcore binary was not found at "%s".',
                 $builtBinary,
             ));
         }
 
         $binaryContents = File::get($builtBinary);
         $this->writeInstalledBinary($installPath, $os, $binaryContents);
-        $this->info(sprintf('Installed oxinfer from source to %s', $installPath));
+        $this->info(sprintf('Installed deadcore from source to %s', $installPath));
     }
 
     private function assertSourceRoot(string $sourceRoot): void
     {
         if (! is_dir($sourceRoot)) {
             throw new RuntimeException(sprintf(
-                'Configured oxinfer source root "%s" does not exist.',
+                'Configured deadcore source root "%s" does not exist.',
                 $sourceRoot,
             ));
         }
 
         if (! is_file($sourceRoot.'/Cargo.toml')) {
             throw new RuntimeException(sprintf(
-                'Configured oxinfer source root "%s" is missing Cargo.toml.',
+                'Configured deadcore source root "%s" is missing Cargo.toml.',
                 $sourceRoot,
             ));
         }
@@ -303,8 +303,8 @@ final class InstallBinaryCommand extends Command
 
     private function builtBinaryPath(string $sourceRoot, string $os): string
     {
-        $requested = $sourceRoot.'/target/release/oxinfer'.($os === 'windows' ? '.exe' : '');
-        $host = $sourceRoot.'/target/release/oxinfer'.(PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
+        $requested = $sourceRoot.'/target/release/deadcore'.($os === 'windows' ? '.exe' : '');
+        $host = $sourceRoot.'/target/release/deadcore'.(PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
 
         foreach (array_values(array_unique([$requested, $host])) as $candidate) {
             if (is_file($candidate)) {

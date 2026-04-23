@@ -6,17 +6,25 @@ namespace Oxhq\Oxcribe\Console;
 
 use Illuminate\Console\Command;
 use JsonException;
-use Oxhq\Oxcribe\OxcribeManager;
+use Oxhq\Oxcribe\Bridge\AnalysisRequestFactory;
+use Oxhq\Oxcribe\Contracts\OxinferClient;
+use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
 
 final class AnalyzeCommand extends Command
 {
-    protected $signature = 'oxcribe:analyze {--project-root=} {--write=} {--pretty}';
+    protected $signature = 'deadcode:analyze {--project-root=} {--write=} {--pretty}';
 
-    protected $description = 'Boot Laravel, capture the runtime route graph, and enrich it with oxinfer';
+    protected $description = 'Capture the Laravel runtime graph and enrich it with deadcore analysis';
 
-    public function handle(OxcribeManager $manager): int
+    public function handle(
+        RuntimeSnapshotFactory $runtimeSnapshotFactory,
+        AnalysisRequestFactory $analysisRequestFactory,
+        OxinferClient $oxinferClient,
+    ): int
     {
-        $response = $manager->analyze($this->option('project-root'));
+        $runtime = $runtimeSnapshotFactory->make();
+        $request = $analysisRequestFactory->make($runtime, $this->option('project-root'));
+        $response = $oxinferClient->analyze($request);
 
         try {
             $json = json_encode($response, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | ($this->option('pretty') ? JSON_PRETTY_PRINT : 0));

@@ -7,67 +7,67 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Oxhq\Oxcribe\Support\PackageVersion;
 
-it('downloads and installs the matching oxinfer binary', function () {
-    $directory = sys_get_temp_dir().'/oxcribe-install-'.bin2hex(random_bytes(6));
-    $binaryPath = $directory.'/bin/oxinfer';
-    $contents = "fake-oxinfer-binary\n";
+it('downloads and installs the matching deadcore binary', function () {
+    $directory = sys_get_temp_dir().'/deadcode-install-'.bin2hex(random_bytes(6));
+    $binaryPath = $directory.'/bin/deadcore';
+    $contents = "fake-deadcore-binary\n";
     $checksum = hash('sha256', $contents);
     $tag = PackageVersion::TAG;
 
-    config()->set('oxcribe.oxinfer.release.repository', 'oxhq/oxinfer');
-    config()->set('oxcribe.oxinfer.release.base_url', 'https://github.com');
+    config()->set('oxcribe.deadcore.release.repository', 'deadcode/deadcore');
+    config()->set('oxcribe.deadcore.release.base_url', 'https://github.com');
 
     Http::fake([
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/checksums.txt" => Http::response(
-            "{$checksum}  oxinfer_{$tag}_linux_amd64\n",
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/checksums.txt" => Http::response(
+            "{$checksum}  deadcore_{$tag}_linux_amd64\n",
         ),
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/oxinfer_{$tag}_linux_amd64" => Http::response(
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/deadcore_{$tag}_linux_amd64" => Http::response(
             $contents,
             200,
             ['Content-Type' => 'application/octet-stream'],
         ),
     ]);
 
-    $this->artisan('oxcribe:install-binary', [
+    $this->artisan('deadcode:install-binary', [
         'version' => $tag,
         '--path' => $binaryPath,
         '--os' => 'linux',
         '--arch' => 'amd64',
     ])
         ->expectsOutput(sprintf('Downloading %s for linux/amd64...', $tag))
-        ->expectsOutput(sprintf('Installed oxinfer %s to %s', $tag, $binaryPath))
+        ->expectsOutput(sprintf('Installed deadcore %s to %s', $tag, $binaryPath))
         ->assertSuccessful();
 
     expect(File::exists($binaryPath))->toBeTrue()
         ->and(File::get($binaryPath))->toBe($contents);
 
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'checksums.txt'));
-    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), "oxinfer_{$tag}_linux_amd64"));
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), "deadcore_{$tag}_linux_amd64"));
 
     File::deleteDirectory($directory);
 });
 
 it('fails when the release checksum does not match the downloaded binary', function () {
-    $directory = sys_get_temp_dir().'/oxcribe-install-'.bin2hex(random_bytes(6));
-    $binaryPath = $directory.'/bin/oxinfer';
+    $directory = sys_get_temp_dir().'/deadcode-install-'.bin2hex(random_bytes(6));
+    $binaryPath = $directory.'/bin/deadcore';
     $tag = PackageVersion::TAG;
 
-    config()->set('oxcribe.oxinfer.release.repository', 'oxhq/oxinfer');
-    config()->set('oxcribe.oxinfer.release.base_url', 'https://github.com');
-    config()->set('oxcribe.oxinfer.source_root', null);
+    config()->set('oxcribe.deadcore.release.repository', 'deadcode/deadcore');
+    config()->set('oxcribe.deadcore.release.base_url', 'https://github.com');
+    config()->set('oxcribe.deadcore.source_root', null);
 
     Http::fake([
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/checksums.txt" => Http::response(
-            str_repeat('a', 64)."  oxinfer_{$tag}_linux_amd64\n",
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/checksums.txt" => Http::response(
+            str_repeat('a', 64)."  deadcore_{$tag}_linux_amd64\n",
         ),
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/oxinfer_{$tag}_linux_amd64" => Http::response(
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/deadcore_{$tag}_linux_amd64" => Http::response(
             "wrong-binary\n",
             200,
             ['Content-Type' => 'application/octet-stream'],
         ),
     ]);
 
-    $this->artisan('oxcribe:install-binary', [
+    $this->artisan('deadcode:install-binary', [
         'version' => $tag,
         '--path' => $binaryPath,
         '--os' => 'linux',
@@ -80,27 +80,27 @@ it('fails when the release checksum does not match the downloaded binary', funct
 });
 
 it('appends the windows executable suffix when needed', function () {
-    $directory = sys_get_temp_dir().'/oxcribe-install-'.bin2hex(random_bytes(6));
-    $binaryPath = $directory.'/bin/oxinfer';
+    $directory = sys_get_temp_dir().'/deadcode-install-'.bin2hex(random_bytes(6));
+    $binaryPath = $directory.'/bin/deadcore';
     $contents = "windows-binary\r\n";
     $checksum = hash('sha256', $contents);
     $tag = PackageVersion::TAG;
 
-    config()->set('oxcribe.oxinfer.release.repository', 'oxhq/oxinfer');
-    config()->set('oxcribe.oxinfer.release.base_url', 'https://github.com');
+    config()->set('oxcribe.deadcore.release.repository', 'deadcode/deadcore');
+    config()->set('oxcribe.deadcore.release.base_url', 'https://github.com');
 
     Http::fake([
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/checksums.txt" => Http::response(
-            "{$checksum}  oxinfer_{$tag}_windows_amd64.exe\n",
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/checksums.txt" => Http::response(
+            "{$checksum}  deadcore_{$tag}_windows_amd64.exe\n",
         ),
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/oxinfer_{$tag}_windows_amd64.exe" => Http::response(
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/deadcore_{$tag}_windows_amd64.exe" => Http::response(
             $contents,
             200,
             ['Content-Type' => 'application/octet-stream'],
         ),
     ]);
 
-    $this->artisan('oxcribe:install-binary', [
+    $this->artisan('deadcode:install-binary', [
         'version' => $tag,
         '--path' => $binaryPath,
         '--os' => 'windows',
@@ -112,23 +112,23 @@ it('appends the windows executable suffix when needed', function () {
     File::deleteDirectory($directory);
 });
 
-it('falls back to a local oxinfer source checkout when release checksums are unavailable', function () {
-    $directory = sys_get_temp_dir().'/oxcribe-install-'.bin2hex(random_bytes(6));
-    $binaryPath = $directory.'/bin/oxinfer';
-    $sourceRoot = $directory.'/oxinfer-source';
+it('falls back to a local deadcore source checkout when release checksums are unavailable', function () {
+    $directory = sys_get_temp_dir().'/deadcode-install-'.bin2hex(random_bytes(6));
+    $binaryPath = $directory.'/bin/deadcore';
+    $sourceRoot = $directory.'/deadcore-source';
     $tag = PackageVersion::TAG;
 
-    makeMinimalRustOxinferSource($sourceRoot, "source-built-binary\n");
+    makeMinimalRustDeadcoreSource($sourceRoot, "source-built-binary\n");
 
-    config()->set('oxcribe.oxinfer.release.repository', 'oxhq/oxinfer');
-    config()->set('oxcribe.oxinfer.release.base_url', 'https://github.com');
-    config()->set('oxcribe.oxinfer.source_root', $sourceRoot);
+    config()->set('oxcribe.deadcore.release.repository', 'deadcode/deadcore');
+    config()->set('oxcribe.deadcore.release.base_url', 'https://github.com');
+    config()->set('oxcribe.deadcore.source_root', $sourceRoot);
 
     Http::fake([
-        "https://github.com/oxhq/oxinfer/releases/download/{$tag}/checksums.txt" => Http::response('', 404),
+        "https://github.com/deadcode/deadcore/releases/download/{$tag}/checksums.txt" => Http::response('', 404),
     ]);
 
-    $this->artisan('oxcribe:install-binary', [
+    $this->artisan('deadcode:install-binary', [
         'version' => $tag,
         '--path' => $binaryPath,
         '--os' => 'linux',
@@ -136,8 +136,8 @@ it('falls back to a local oxinfer source checkout when release checksums are una
     ])
         ->expectsOutput(sprintf('Downloading %s for linux/amd64...', $tag))
         ->expectsOutputToContain('Unable to download release checksums')
-        ->expectsOutputToContain('Falling back to local oxinfer source')
-        ->expectsOutput(sprintf('Installed oxinfer from source to %s', $binaryPath))
+        ->expectsOutputToContain('Falling back to local deadcore source')
+        ->expectsOutput(sprintf('Installed deadcore from source to %s', $binaryPath))
         ->assertSuccessful();
 
     expect(File::exists($binaryPath))->toBeTrue()
@@ -146,19 +146,19 @@ it('falls back to a local oxinfer source checkout when release checksums are una
     File::deleteDirectory($directory);
 });
 
-it('prefers a local oxinfer source checkout without hitting the network when requested', function () {
-    $directory = sys_get_temp_dir().'/oxcribe-install-'.bin2hex(random_bytes(6));
-    $binaryPath = $directory.'/bin/oxinfer';
-    $sourceRoot = $directory.'/oxinfer-source';
+it('prefers a local deadcore source checkout without hitting the network when requested', function () {
+    $directory = sys_get_temp_dir().'/deadcode-install-'.bin2hex(random_bytes(6));
+    $binaryPath = $directory.'/bin/deadcore';
+    $sourceRoot = $directory.'/deadcore-source';
 
-    makeMinimalRustOxinferSource($sourceRoot, "source-preferred-binary\n");
+    makeMinimalRustDeadcoreSource($sourceRoot, "source-preferred-binary\n");
 
-    config()->set('oxcribe.oxinfer.release.repository', 'oxhq/oxinfer');
-    config()->set('oxcribe.oxinfer.release.base_url', 'https://github.com');
+    config()->set('oxcribe.deadcore.release.repository', 'deadcode/deadcore');
+    config()->set('oxcribe.deadcore.release.base_url', 'https://github.com');
 
     Http::fake();
 
-    $this->artisan('oxcribe:install-binary', [
+    $this->artisan('deadcode:install-binary', [
         'version' => PackageVersion::TAG,
         '--path' => $binaryPath,
         '--os' => 'linux',
@@ -166,8 +166,8 @@ it('prefers a local oxinfer source checkout without hitting the network when req
         '--source-root' => $sourceRoot,
         '--prefer-source' => true,
     ])
-        ->expectsOutputToContain('Building oxinfer from source')
-        ->expectsOutput(sprintf('Installed oxinfer from source to %s', $binaryPath))
+        ->expectsOutputToContain('Building deadcore from source')
+        ->expectsOutput(sprintf('Installed deadcore from source to %s', $binaryPath))
         ->assertSuccessful();
 
     expect(File::exists($binaryPath))->toBeTrue()
@@ -178,12 +178,12 @@ it('prefers a local oxinfer source checkout without hitting the network when req
     File::deleteDirectory($directory);
 });
 
-function makeMinimalRustOxinferSource(string $sourceRoot, string $output): void
+function makeMinimalRustDeadcoreSource(string $sourceRoot, string $output): void
 {
     File::ensureDirectoryExists($sourceRoot.'/src');
     File::put($sourceRoot.'/Cargo.toml', <<<'TOML'
 [package]
-name = "oxinfer"
+name = "deadcore"
 version = "0.1.3"
 edition = "2021"
 TOML);

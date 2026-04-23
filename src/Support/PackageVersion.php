@@ -10,6 +10,6 @@ final class PackageVersion
 
     public static function label(): string
     {
-        return 'oxcribe '.self::TAG;
+        return 'deadcode-laravel '.self::TAG;
     }
 }

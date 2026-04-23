@@ -7,29 +7,24 @@ namespace Oxhq\Oxcribe\Console;
 use Illuminate\Console\Command;
 use Oxhq\Oxcribe\Support\OxinferBinaryResolver;
 use Oxhq\Oxcribe\Support\PackageVersion;
-use Oxhq\Oxcribe\Support\PublishVersionResolver;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
 final class DoctorCommand extends Command
 {
-    protected $signature = 'oxcribe:doctor
-        {--project-root= : Override the Laravel app root to inspect}
-        {--skip-cloud : Skip Oxcribe Cloud publish checks}';
+    protected $signature = 'deadcode:doctor {--project-root= : Override the Laravel app root to inspect}';
 
-    protected $description = 'Run a first-publish preflight for oxcribe, oxinfer, and Oxcribe Cloud config';
+    protected $description = 'Run a local deadcode preflight for the target Laravel app and deadcore binary';
 
     public function handle(): int
     {
-        $oxinferConfig = (array) config('oxcribe.oxinfer', []);
-        $publishConfig = (array) config('oxcribe.publish', []);
-        $projectRoot = $this->resolveProjectRoot($oxinferConfig);
-        $workingDirectory = (string) ($oxinferConfig['working_directory'] ?? $projectRoot);
+        $deadcoreConfig = (array) config('oxcribe.deadcore', []);
+        $analysisConfig = (array) config('oxcribe.analysis.scan', []);
+        $projectRoot = $this->resolveProjectRoot($deadcoreConfig);
+        $workingDirectory = (string) ($deadcoreConfig['working_directory'] ?? $projectRoot);
         $binaryResolver = new OxinferBinaryResolver;
-        $versionResolver = new PublishVersionResolver;
 
         $blocking = false;
-        $cloudBlocking = false;
 
         $this->components->twoColumnDetail('Package', PackageVersion::label());
         $this->newLine();
@@ -52,98 +47,67 @@ final class DoctorCommand extends Command
             $this->report('FAIL', 'composer.json', 'Missing composer.json in the resolved project root.');
         }
 
-        $docsEnabled = (bool) config('oxcribe.docs.enabled', false);
-        $docsRoute = (string) config('oxcribe.docs.route', 'oxcribe/docs');
-        $docsMessage = $docsEnabled
-            ? sprintf('Local viewer enabled at /%s', ltrim($docsRoute, '/'))
-            : 'Local viewer is disabled. Set OXCRIBE_DOCS_ENABLED=true if you want package-owned local docs.';
-        $this->report($docsEnabled ? 'PASS' : 'WARN', 'Local docs', $docsMessage);
+        $targets = array_values(array_filter(
+            (array) ($analysisConfig['targets'] ?? []),
+            static fn (mixed $target): bool => is_string($target) && trim($target) !== '',
+        ));
+        if ($targets === []) {
+            $this->report('WARN', 'Analysis targets', 'No scan targets are configured under oxcribe.analysis.scan.targets.');
+        } else {
+            $this->report('PASS', 'Analysis targets', implode(', ', $targets));
+        }
 
         try {
-            $binary = $binaryResolver->resolve($oxinferConfig, $workingDirectory);
-            $this->report('PASS', 'Oxinfer binary', $binary);
+            $binary = $binaryResolver->resolve($deadcoreConfig, $workingDirectory);
+            $this->report('PASS', 'Deadcore binary', $binary);
 
             $version = $this->resolveBinaryVersion($binary, $workingDirectory);
             if ($version !== null) {
-                $this->report('PASS', 'Oxinfer version', $version);
+                $this->report('PASS', 'Deadcore version', $version);
             } else {
-                $this->report('WARN', 'Oxinfer version', 'Binary is executable, but --version did not return cleanly.');
+                $this->report('WARN', 'Deadcore version', 'Binary is executable, but --version did not return cleanly.');
             }
         } catch (RuntimeException $exception) {
             $blocking = true;
-            $suggestedPath = $binaryResolver->suggestedInstallPath($oxinferConfig, $workingDirectory);
-            $this->report('FAIL', 'Oxinfer binary', $exception->getMessage());
-            $sourceRoot = trim((string) ($oxinferConfig['source_root'] ?? ''));
-            $installCommand = sprintf('php artisan oxcribe:install-binary %s', PackageVersion::TAG);
+            $suggestedPath = $binaryResolver->suggestedInstallPath($deadcoreConfig, $workingDirectory);
+            $this->report('FAIL', 'Deadcore binary', $this->normalizeBinaryError($exception->getMessage()));
+            $sourceRoot = trim((string) ($deadcoreConfig['source_root'] ?? ''));
+            $installCommand = sprintf('php artisan deadcode:install-binary %s', PackageVersion::TAG);
             if ($sourceRoot !== '') {
                 $installCommand .= sprintf(' --source-root=%s', $sourceRoot);
             }
-            $this->line(sprintf('      Next: run `%s` or point OXINFER_BINARY to an executable path.', $installCommand));
+            $this->line(sprintf('      Next: run `%s` or point DEADCORE_BINARY to an executable path.', $installCommand));
             $this->line(sprintf('      Hint: the default app-local install path is %s', $suggestedPath));
-        }
-
-        if (! $this->option('skip-cloud')) {
-            $baseUrl = rtrim(trim((string) ($publishConfig['base_url'] ?? '')), '/');
-            $token = trim((string) ($publishConfig['token'] ?? ''));
-
-            if ($baseUrl === '') {
-                $cloudBlocking = true;
-                $this->report('FAIL', 'Oxcribe Cloud URL', 'Missing OXCLOUD_BASE_URL / oxcribe.publish.base_url.');
-            } elseif (filter_var($baseUrl, FILTER_VALIDATE_URL) === false) {
-                $cloudBlocking = true;
-                $this->report('FAIL', 'Oxcribe Cloud URL', sprintf('"%s" is not a valid URL.', $baseUrl));
-            } else {
-                $this->report('PASS', 'Oxcribe Cloud URL', $baseUrl);
-            }
-
-            if ($token === '') {
-                $cloudBlocking = true;
-                $this->report('FAIL', 'Publish token', 'Missing OXCLOUD_TOKEN / oxcribe.publish.token.');
-            } else {
-                $this->report('PASS', 'Publish token', sprintf('Configured (%s)', $this->maskSecret($token)));
-            }
-
-            $this->report('PASS', 'Resolved publish version', $versionResolver->resolve(null, $publishConfig));
-        } else {
-            $this->report('WARN', 'Oxcribe Cloud', 'Skipped with --skip-cloud. Only local analyze/docs readiness was checked.');
         }
 
         $this->newLine();
 
-        if (! $blocking && ($this->option('skip-cloud') || ! $cloudBlocking)) {
-            $this->info('Oxcribe is ready for the next step.');
-            $this->line($this->option('skip-cloud')
-                ? 'Next: run `php artisan oxcribe:analyze` or `php artisan oxcribe:export-openapi`.'
-                : 'Next: run `php artisan oxcribe:publish --publish-version=<version>` and open the URLs it prints.');
+        if (! $blocking) {
+            $this->info('deadcode-laravel is ready for local analysis.');
+            $this->line('Next: run `php artisan deadcode:analyze` or `php artisan deadcode:report`.');
 
             return self::SUCCESS;
         }
 
-        $this->error('Oxcribe preflight found blocking issues.');
-        $this->line('Next: fix the failed checks above, then rerun `php artisan oxcribe:doctor`.');
-        $this->line('Docs: installation.md and troubleshooting.md cover the common first-publish failures.');
+        $this->error('Local deadcode preflight found blocking issues.');
+        $this->line('Next: fix the failed checks above, then rerun `php artisan deadcode:doctor`.');
 
         return self::FAILURE;
     }
 
     /**
-     * @param  array<string, mixed>  $oxinferConfig
+     * @param  array<string, mixed>  $deadcoreConfig
      */
-    private function resolveProjectRoot(array $oxinferConfig): string
+    private function resolveProjectRoot(array $deadcoreConfig): string
     {
         $fromOption = trim((string) $this->option('project-root'));
         if ($fromOption !== '') {
             return $fromOption;
         }
 
-        $fromConfig = trim((string) ($oxinferConfig['working_directory'] ?? ''));
+        $fromConfig = trim((string) ($deadcoreConfig['working_directory'] ?? ''));
         if ($fromConfig !== '') {
             return $fromConfig;
-        }
-
-        $fromDocs = trim((string) config('oxcribe.docs.project_root', ''));
-        if ($fromDocs !== '') {
-            return $fromDocs;
         }
 
         return base_path();
@@ -163,13 +127,13 @@ final class DoctorCommand extends Command
         return $output !== '' ? $output : null;
     }
 
-    private function maskSecret(string $value): string
+    private function normalizeBinaryError(string $message): string
     {
-        if (strlen($value) <= 8) {
-            return str_repeat('*', strlen($value));
-        }
-
-        return substr($value, 0, 4).str_repeat('*', max(strlen($value) - 8, 4)).substr($value, -4);
+        return str_replace(
+            ['oxinfer', 'OXINFER', 'oxcribe.oxinfer'],
+            ['deadcore', 'DEADCORE', 'oxcribe.deadcore'],
+            $message,
+        );
     }
 
     private function report(string $status, string $label, string $message): void

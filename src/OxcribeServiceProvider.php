@@ -8,20 +8,16 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Oxhq\Oxcribe\Bridge\AnalysisRequestFactory;
 use Oxhq\Oxcribe\Bridge\ProcessOxinferClient;
+use Oxhq\Oxcribe\Console\ApplyCommand;
 use Oxhq\Oxcribe\Console\AnalyzeCommand;
 use Oxhq\Oxcribe\Console\DoctorCommand;
-use Oxhq\Oxcribe\Console\ExportOpenApiCommand;
 use Oxhq\Oxcribe\Console\InstallBinaryCommand;
-use Oxhq\Oxcribe\Console\PublishCommand;
+use Oxhq\Oxcribe\Console\ReportCommand;
+use Oxhq\Oxcribe\Console\RollbackCommand;
 use Oxhq\Oxcribe\Contracts\OxinferClient;
 use Oxhq\Oxcribe\Contracts\PackageInventoryDetector;
 use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
-use Oxhq\Oxcribe\Docs\DocsPayloadFactory;
 use Oxhq\Oxcribe\Http\Middleware\VisibilityMarkerMiddleware;
-use Oxhq\Oxcribe\Merge\OperationGraphMerger;
-use Oxhq\Oxcribe\OpenApi\OpenApiDocumentFactory;
-use Oxhq\Oxcribe\Overrides\OverrideApplier;
-use Oxhq\Oxcribe\Overrides\OverrideLoader;
 use Oxhq\Oxcribe\Runtime\LaravelRuntimeSnapshotFactory;
 use Oxhq\Oxcribe\Support\FormRequestFieldResolver;
 use Oxhq\Oxcribe\Support\InstalledPackageDetector;
@@ -52,31 +48,7 @@ final class OxcribeServiceProvider extends ServiceProvider
             );
         });
         $this->app->singleton(OxinferClient::class, function ($app): OxinferClient {
-            return new ProcessOxinferClient((array) $app['config']->get('oxcribe.oxinfer', []));
-        });
-        $this->app->singleton(OperationGraphMerger::class, function ($app): OperationGraphMerger {
-            return new OperationGraphMerger(
-                formRequestFieldResolver: $app->make(FormRequestFieldResolver::class),
-            );
-        });
-        $this->app->singleton(OverrideLoader::class, function ($app): OverrideLoader {
-            return new OverrideLoader((array) $app['config']->get('oxcribe', []));
-        });
-        $this->app->singleton(OverrideApplier::class);
-        $this->app->singleton(OpenApiDocumentFactory::class);
-        $this->app->singleton(DocsPayloadFactory::class);
-        $this->app->singleton(OxcribeManager::class, function ($app): OxcribeManager {
-            return new OxcribeManager(
-                runtimeSnapshotFactory: $app->make(RuntimeSnapshotFactory::class),
-                analysisRequestFactory: $app->make(AnalysisRequestFactory::class),
-                oxinferClient: $app->make(OxinferClient::class),
-                operationGraphMerger: $app->make(OperationGraphMerger::class),
-                overrideLoader: $app->make(OverrideLoader::class),
-                overrideApplier: $app->make(OverrideApplier::class),
-                openApiDocumentFactory: $app->make(OpenApiDocumentFactory::class),
-                docsPayloadFactory: $app->make(DocsPayloadFactory::class),
-                config: (array) $app['config']->get('oxcribe', []),
-            );
+            return new ProcessOxinferClient((array) $app['config']->get('oxcribe.deadcore', []));
         });
     }
 
@@ -96,16 +68,14 @@ final class OxcribeServiceProvider extends ServiceProvider
             $router->aliasMiddleware($alias, VisibilityMarkerMiddleware::class);
         }
 
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'oxcribe');
-        $this->loadRoutesFrom(__DIR__.'/../routes/oxcribe.php');
-
         if ($this->app->runningInConsole()) {
             $this->commands([
+                ApplyCommand::class,
                 AnalyzeCommand::class,
                 DoctorCommand::class,
-                ExportOpenApiCommand::class,
                 InstallBinaryCommand::class,
-                PublishCommand::class,
+                ReportCommand::class,
+                RollbackCommand::class,
             ]);
         }
     }
