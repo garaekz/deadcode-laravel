@@ -85,3 +85,62 @@ function makePortablePhpCommand(string $directory, string $name, string $phpBody
 
     return $wrapperPath;
 }
+
+function deadcoreControllerReachabilityPayload(): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-controller-reachability',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 17,
+            'cache_hits' => 2,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_route',
+                'symbol' => 'App\\Http\\Controllers\\UserController::index',
+                'source' => 'users.index',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'controller_method',
+                'symbol' => 'App\\Http\\Controllers\\UserController::index',
+                'file' => 'app/Http/Controllers/UserController.php',
+                'reachableFromRuntime' => true,
+                'startLine' => 10,
+                'endLine' => 18,
+            ],
+            [
+                'kind' => 'controller_method',
+                'symbol' => 'App\\Http\\Controllers\\UserController::unused',
+                'file' => 'app/Http/Controllers/UserController.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 20,
+                'endLine' => 24,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Http\\Controllers\\UserController::unused',
+                'category' => 'unused_controller_method',
+                'confidence' => 'high',
+                'file' => 'app/Http/Controllers/UserController.php',
+                'startLine' => 20,
+                'endLine' => 24,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => [
+                [
+                    'file' => 'app/Http/Controllers/UserController.php',
+                    'symbol' => 'App\\Http\\Controllers\\UserController::unused',
+                    'start_line' => 20,
+                    'end_line' => 24,
+                ],
+            ],
+        ],
+    ];
+}

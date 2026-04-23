@@ -6,26 +6,26 @@ namespace Oxhq\Oxcribe\Data;
 
 use InvalidArgumentException;
 use JsonException;
+use JsonSerializable;
 
-final readonly class DeadCodeAnalysisResponse
+final readonly class DeadCodeAnalysisResponse implements JsonSerializable
 {
     public const CONTRACT_VERSION = 'deadcode.analysis.v1';
 
     /**
-     * @param  array<string, mixed>  $meta
-     * @param  array<string, mixed>  $delta
-     * @param  list<RouteMatch>  $routeMatches
-     * @param  list<Diagnostic>  $diagnostics
+     * @param  list<DeadCodeEntrypoint>  $entrypoints
+     * @param  list<DeadCodeSymbol>  $symbols
+     * @param  list<DeadCodeFinding>  $findings
      */
     public function __construct(
         public string $contractVersion,
         public string $requestId,
-        public string $runtimeFingerprint,
         public string $status,
-        public array $meta,
-        public array $delta,
-        public array $routeMatches,
-        public array $diagnostics,
+        public DeadCodeAnalysisMeta $meta,
+        public array $entrypoints,
+        public array $symbols,
+        public array $findings,
+        public DeadCodeRemovalPlan $removalPlan,
     ) {}
 
     /**
@@ -34,34 +34,32 @@ final readonly class DeadCodeAnalysisResponse
     public static function fromArray(array $payload): self
     {
         $contractVersion = (string) ($payload['contractVersion'] ?? '');
-        $supportedVersions = [
-            self::CONTRACT_VERSION,
-            AnalysisResponse::CONTRACT_VERSION,
-        ];
-
-        if (! in_array($contractVersion, $supportedVersions, true)) {
+        if ($contractVersion !== self::CONTRACT_VERSION) {
             throw new InvalidArgumentException(sprintf(
-                'Unsupported analysis response contract version [%s]; expected one of [%s].',
+                'Unsupported deadcode analysis response contract version [%s]; expected [%s].',
                 $contractVersion,
-                implode(', ', $supportedVersions),
+                self::CONTRACT_VERSION,
             ));
         }
 
         return new self(
             contractVersion: $contractVersion,
             requestId: (string) ($payload['requestId'] ?? ''),
-            runtimeFingerprint: (string) ($payload['runtimeFingerprint'] ?? ''),
             status: (string) ($payload['status'] ?? 'failed'),
-            meta: (array) ($payload['meta'] ?? []),
-            delta: (array) ($payload['delta'] ?? []),
-            routeMatches: array_map(
-                static fn (array $routeMatch): RouteMatch => RouteMatch::fromArray($routeMatch),
-                array_values((array) ($payload['routeMatches'] ?? [])),
+            meta: DeadCodeAnalysisMeta::fromArray((array) ($payload['meta'] ?? [])),
+            entrypoints: array_map(
+                static fn (array $entrypoint): DeadCodeEntrypoint => DeadCodeEntrypoint::fromArray($entrypoint),
+                array_values((array) ($payload['entrypoints'] ?? [])),
             ),
-            diagnostics: array_map(
-                static fn (array $diagnostic): Diagnostic => Diagnostic::fromArray($diagnostic),
-                array_values((array) ($payload['diagnostics'] ?? [])),
+            symbols: array_map(
+                static fn (array $symbol): DeadCodeSymbol => DeadCodeSymbol::fromArray($symbol),
+                array_values((array) ($payload['symbols'] ?? [])),
             ),
+            findings: array_map(
+                static fn (array $finding): DeadCodeFinding => DeadCodeFinding::fromArray($finding),
+                array_values((array) ($payload['findings'] ?? [])),
+            ),
+            removalPlan: DeadCodeRemovalPlan::fromArray((array) ($payload['removalPlan'] ?? [])),
         );
     }
 
@@ -74,5 +72,31 @@ final readonly class DeadCodeAnalysisResponse
         $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
 
         return self::fromArray($payload);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'contractVersion' => $this->contractVersion,
+            'requestId' => $this->requestId,
+            'status' => $this->status,
+            'meta' => $this->meta->jsonSerialize(),
+            'entrypoints' => array_map(
+                static fn (DeadCodeEntrypoint $entrypoint): array => $entrypoint->jsonSerialize(),
+                $this->entrypoints,
+            ),
+            'symbols' => array_map(
+                static fn (DeadCodeSymbol $symbol): array => $symbol->jsonSerialize(),
+                $this->symbols,
+            ),
+            'findings' => array_map(
+                static fn (DeadCodeFinding $finding): array => $finding->jsonSerialize(),
+                $this->findings,
+            ),
+            'removalPlan' => $this->removalPlan->jsonSerialize(),
+        ];
     }
 }

@@ -9,8 +9,10 @@ use Oxhq\Oxcribe\Bridge\DeadCodeAnalysisRequestFactory;
 use Oxhq\Oxcribe\Bridge\ProcessDeadCodeClient;
 use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
 use Oxhq\Oxcribe\Data\DeadCodeAnalysisResponse;
-use Oxhq\Oxcribe\Data\Diagnostic;
-use Oxhq\Oxcribe\Data\RouteMatch;
+use Oxhq\Oxcribe\Data\DeadCodeEntrypoint;
+use Oxhq\Oxcribe\Data\DeadCodeFinding;
+use Oxhq\Oxcribe\Data\DeadCodeRemovalChangeSet;
+use Oxhq\Oxcribe\Data\DeadCodeSymbol;
 
 final class ReportCommand extends Command
 {
@@ -41,40 +43,70 @@ final class ReportCommand extends Command
      */
     private function reportPayload(string $projectRoot, DeadCodeAnalysisResponse $response): array
     {
+        $reachableSymbolCount = count(array_filter(
+            $response->symbols,
+            static fn (DeadCodeSymbol $symbol): bool => $symbol->reachableFromRuntime,
+        ));
+
         return [
             'contractVersion' => 'deadcode.report.v1',
             'projectRoot' => $projectRoot,
             'requestId' => $response->requestId,
-            'runtimeFingerprint' => $response->runtimeFingerprint,
             'status' => $response->status,
-            'summary' => [
-                'routesInspected' => count($response->routeMatches),
-                'diagnosticCount' => count($response->diagnostics),
-                'partial' => (bool) ($response->meta['partial'] ?? false),
+            'meta' => [
+                'durationMs' => $response->meta->durationMs,
+                'cacheHits' => $response->meta->cacheHits,
+                'cacheMisses' => $response->meta->cacheMisses,
             ],
-            'diagnostics' => array_map(
-                static fn (Diagnostic $diagnostic): array => [
-                    'code' => $diagnostic->code,
-                    'severity' => $diagnostic->severity,
-                    'scope' => $diagnostic->scope,
-                    'message' => $diagnostic->message,
-                    'routeId' => $diagnostic->routeId,
-                    'actionKey' => $diagnostic->actionKey,
-                    'file' => $diagnostic->file,
-                    'line' => $diagnostic->line,
+            'summary' => [
+                'entrypointCount' => count($response->entrypoints),
+                'symbolCount' => count($response->symbols),
+                'reachableSymbolCount' => $reachableSymbolCount,
+                'unreachableSymbolCount' => count($response->symbols) - $reachableSymbolCount,
+                'findingCount' => count($response->findings),
+                'removalChangeCount' => count($response->removalPlan->changeSets),
+            ],
+            'entrypoints' => array_map(
+                static fn (DeadCodeEntrypoint $entrypoint): array => [
+                    'kind' => $entrypoint->kind,
+                    'symbol' => $entrypoint->symbol,
+                    'source' => $entrypoint->source,
                 ],
-                $response->diagnostics,
+                $response->entrypoints,
             ),
-            'routeMatches' => array_map(
-                static fn (RouteMatch $routeMatch): array => [
-                    'routeId' => $routeMatch->routeId,
-                    'actionKind' => $routeMatch->actionKind,
-                    'matchStatus' => $routeMatch->matchStatus,
-                    'actionKey' => $routeMatch->actionKey,
-                    'reasonCode' => $routeMatch->reasonCode,
-                ],
-                $response->routeMatches,
+            'symbols' => array_map(
+                static fn (DeadCodeSymbol $symbol): array => array_filter([
+                    'kind' => $symbol->kind,
+                    'symbol' => $symbol->symbol,
+                    'file' => $symbol->file,
+                    'reachableFromRuntime' => $symbol->reachableFromRuntime,
+                    'startLine' => $symbol->startLine,
+                    'endLine' => $symbol->endLine,
+                ], static fn (mixed $value): bool => $value !== null),
+                $response->symbols,
             ),
+            'findings' => array_map(
+                static fn (DeadCodeFinding $finding): array => array_filter([
+                    'symbol' => $finding->symbol,
+                    'category' => $finding->category,
+                    'confidence' => $finding->confidence,
+                    'file' => $finding->file,
+                    'startLine' => $finding->startLine,
+                    'endLine' => $finding->endLine,
+                ], static fn (mixed $value): bool => $value !== null),
+                $response->findings,
+            ),
+            'removalPlan' => [
+                'changeSets' => array_map(
+                    static fn (DeadCodeRemovalChangeSet $changeSet): array => [
+                        'file' => $changeSet->file,
+                        'symbol' => $changeSet->symbol,
+                        'startLine' => $changeSet->startLine,
+                        'endLine' => $changeSet->endLine,
+                    ],
+                    $response->removalPlan->changeSets,
+                ),
+            ],
         ];
     }
 }
