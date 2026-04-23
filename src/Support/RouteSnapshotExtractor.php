@@ -58,30 +58,53 @@ final class RouteSnapshotExtractor
 
     private function resolveAction(Route $route): RouteAction
     {
-        $action = $route->getAction();
-        $uses = $action['uses'] ?? null;
-        $controller = $action['controller'] ?? null;
-        $signature = is_string($controller) ? $controller : (is_string($uses) ? $uses : null);
-
-        if ($uses instanceof Closure || $route->getActionName() === 'Closure') {
+        if ($route->getActionName() === 'Closure') {
             return new RouteAction('closure');
         }
 
-        if (is_string($signature) && str_contains($signature, '@')) {
-            [$fqcn, $method] = explode('@', $signature, 2);
+        $action = $route->getAction();
+        $uses = $action['uses'] ?? null;
 
-            if ($method === '__invoke') {
-                return new RouteAction('invokable_controller', $fqcn, '__invoke');
-            }
-
-            return new RouteAction('controller_method', $fqcn, $method);
+        if ($uses instanceof Closure) {
+            return new RouteAction('closure');
         }
 
-        if (is_string($signature) && $signature !== '') {
-            return new RouteAction('invokable_controller', $signature, '__invoke');
+        $controllerAction = $this->normalizeControllerAction($action['controller'] ?? null)
+            ?? $this->normalizeControllerAction($uses);
+
+        if ($controllerAction !== null) {
+            return $controllerAction;
         }
 
         return new RouteAction('unknown');
+    }
+
+    private function normalizeControllerAction(mixed $action): ?RouteAction
+    {
+        if (is_array($action) && count($action) === 2 && is_string($action[0]) && is_string($action[1])) {
+            return $this->makeControllerAction($action[0], $action[1]);
+        }
+
+        if (! is_string($action) || $action === '' || $action === 'Closure') {
+            return null;
+        }
+
+        if (str_contains($action, '@')) {
+            [$fqcn, $method] = explode('@', $action, 2);
+
+            return $this->makeControllerAction($fqcn, $method);
+        }
+
+        return $this->makeControllerAction($action, '__invoke');
+    }
+
+    private function makeControllerAction(string $fqcn, string $method): RouteAction
+    {
+        if ($method === '__invoke') {
+            return new RouteAction('invokable_controller', $fqcn, '__invoke');
+        }
+
+        return new RouteAction('controller_method', $fqcn, $method);
     }
 
     /**

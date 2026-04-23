@@ -20,10 +20,22 @@ final readonly class RouteAction
         };
     }
 
+    public function controller(): ?string
+    {
+        if ($this->fqcn === null || $this->method === null) {
+            return null;
+        }
+
+        return sprintf('%s@%s', $this->fqcn, $this->method);
+    }
+
     public function toArray(): array
     {
         return array_filter([
             'kind' => $this->kind,
+            'controller' => $this->controller(),
+            'controllerClass' => $this->fqcn,
+            'controllerMethod' => $this->method,
             'fqcn' => $this->fqcn,
             'method' => $this->method,
         ], static fn (mixed $value): bool => $value !== null);

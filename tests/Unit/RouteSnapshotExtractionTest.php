@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
+use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
 use Oxhq\Oxcribe\Support\RouteSnapshotExtractor;
 
 if (! class_exists(OxcribeHardeningUser::class)) {
@@ -24,6 +25,16 @@ if (! class_exists(OxcribeHardeningController::class)) {
     class OxcribeHardeningController
     {
         public function show(OxcribeHardeningUser $user, OxcribeHardeningPost $post): string
+        {
+            return 'ok';
+        }
+    }
+}
+
+if (! class_exists(OxcribeInvokableHardeningController::class)) {
+    class OxcribeInvokableHardeningController
+    {
+        public function __invoke(): string
         {
             return 'ok';
         }
@@ -84,5 +95,33 @@ it('captures path bindings and grouped prefixes for downstream route filtering',
             'kind' => 'implicit_model',
             'targetFqcn' => OxcribeHardeningPost::class,
             'isImplicit' => true,
+        ]);
+});
+
+it('captures controller entrypoints from the runtime route table', function () {
+    Route::get('/oxcribe/runtime/controller/{user}/{post}', [OxcribeHardeningController::class, 'show'])
+        ->name('oxcribe.runtime.controller');
+
+    Route::get('/oxcribe/runtime/invokable', OxcribeInvokableHardeningController::class)
+        ->name('oxcribe.runtime.invokable');
+
+    $runtime = app(RuntimeSnapshotFactory::class)->make()->toArray();
+
+    $controllerRoute = collect($runtime['routes'])->firstWhere('name', 'oxcribe.runtime.controller');
+    $invokableRoute = collect($runtime['routes'])->firstWhere('name', 'oxcribe.runtime.invokable');
+
+    expect($controllerRoute)->not->toBeNull()
+        ->and($controllerRoute['action'])->toMatchArray([
+            'kind' => 'controller_method',
+            'controller' => OxcribeHardeningController::class.'@show',
+            'controllerClass' => OxcribeHardeningController::class,
+            'controllerMethod' => 'show',
+        ])
+        ->and($invokableRoute)->not->toBeNull()
+        ->and($invokableRoute['action'])->toMatchArray([
+            'kind' => 'invokable_controller',
+            'controller' => OxcribeInvokableHardeningController::class.'@__invoke',
+            'controllerClass' => OxcribeInvokableHardeningController::class,
+            'controllerMethod' => '__invoke',
         ]);
 });
