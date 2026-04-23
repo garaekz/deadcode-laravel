@@ -39,6 +39,7 @@
   },
   "autoload": {
     "psr-4": {
+      "Deadcode\\": "src/",
       "Oxhq\\Oxcribe\\": "src/"
     }
   },
