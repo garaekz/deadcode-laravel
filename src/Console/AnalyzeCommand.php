@@ -12,7 +12,7 @@ use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
 
 final class AnalyzeCommand extends Command
 {
-    protected $signature = 'deadcode:analyze {--project-root=} {--write=} {--pretty}';
+    protected $signature = 'deadcode:analyze {--write=} {--pretty}';
 
     protected $description = 'Capture the Laravel runtime graph and enrich it with deadcore analysis';
 
@@ -23,7 +23,7 @@ final class AnalyzeCommand extends Command
     ): int
     {
         $runtime = $runtimeSnapshotFactory->make();
-        $request = $analysisRequestFactory->make($runtime, $this->option('project-root'));
+        $request = $analysisRequestFactory->make($runtime);
         $response = $oxinferClient->analyze($request);
 
         try {

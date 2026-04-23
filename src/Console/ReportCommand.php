@@ -16,7 +16,7 @@ final class ReportCommand extends Command
 {
     use WritesJsonOutput;
 
-    protected $signature = 'deadcode:report {--project-root=} {--write=} {--pretty}';
+    protected $signature = 'deadcode:report {--write=} {--pretty}';
 
     protected $description = 'Produce a local dead code report from the current Laravel runtime and deadcore analysis';
 
@@ -26,7 +26,7 @@ final class ReportCommand extends Command
         OxinferClient $oxinferClient,
     ): int {
         $runtime = $runtimeSnapshotFactory->make();
-        $request = $analysisRequestFactory->make($runtime, $this->option('project-root'));
+        $request = $analysisRequestFactory->make($runtime);
         $response = $oxinferClient->analyze($request);
 
         return $this->writeJsonPayload(

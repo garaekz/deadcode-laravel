@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Oxhq\Oxcribe;
 
-use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Oxhq\Oxcribe\Bridge\AnalysisRequestFactory;
 use Oxhq\Oxcribe\Bridge\ProcessOxinferClient;
@@ -17,7 +16,6 @@ use Oxhq\Oxcribe\Console\RollbackCommand;
 use Oxhq\Oxcribe\Contracts\OxinferClient;
 use Oxhq\Oxcribe\Contracts\PackageInventoryDetector;
 use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
-use Oxhq\Oxcribe\Http\Middleware\VisibilityMarkerMiddleware;
 use Oxhq\Oxcribe\Runtime\LaravelRuntimeSnapshotFactory;
 use Oxhq\Oxcribe\Support\FormRequestFieldResolver;
 use Oxhq\Oxcribe\Support\InstalledPackageDetector;
@@ -57,16 +55,6 @@ final class OxcribeServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../config/oxcribe.php' => config_path('oxcribe.php'),
         ], 'oxcribe-config');
-
-        $router = $this->app->make(Router::class);
-        foreach ([
-            'oxcribe.publish',
-            'ox.publish',
-            'oxcribe.private',
-            'ox.private',
-        ] as $alias) {
-            $router->aliasMiddleware($alias, VisibilityMarkerMiddleware::class);
-        }
 
         if ($this->app->runningInConsole()) {
             $this->commands([

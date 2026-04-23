@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Console\Input\InputOption;
 use Oxhq\Oxcribe\OxcribeServiceProvider;
 
 it('registers the package service provider in the test application', function () {
@@ -33,4 +34,28 @@ it('registers the local deadcode command surface', function () {
             'oxcribe:export-openapi',
             'oxcribe:publish',
         );
+});
+
+it('keeps the deadcode command surface honest about unsupported project switching', function () {
+    $analyze = Artisan::all()['deadcode:analyze'];
+    $report = Artisan::all()['deadcode:report'];
+
+    expect($analyze->getDefinition()->hasOption('project-root'))->toBeFalse()
+        ->and($report->getDefinition()->hasOption('project-root'))->toBeFalse()
+        ->and($analyze->getDefinition()->hasOption('write'))->toBeTrue()
+        ->and($report->getDefinition()->hasOption('write'))->toBeTrue()
+        ->and($analyze->getDefinition()->getOption('write'))->toBeInstanceOf(InputOption::class)
+        ->and($report->getDefinition()->getOption('write'))->toBeInstanceOf(InputOption::class);
+});
+
+it('does not register obsolete visibility middleware aliases', function () {
+    $aliases = app('router')->getMiddleware();
+
+    expect(config('oxcribe.visibility'))->toBeNull()
+        ->and($aliases)->not->toHaveKeys([
+            'oxcribe.publish',
+            'ox.publish',
+            'oxcribe.private',
+            'ox.private',
+        ]);
 });
