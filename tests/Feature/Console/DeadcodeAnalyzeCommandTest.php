@@ -2,76 +2,89 @@
 
 declare(strict_types=1);
 
+use Deadcode\Runtime\Contracts\Task;
+use Deadcode\Runtime\Supervisor\SupervisorTransport;
+use Deadcode\Tasks\AnalyzeProjectTask;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\File;
-use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
-use Oxhq\Oxcribe\Data\AppSnapshot;
-use Oxhq\Oxcribe\Data\RuntimeSnapshot;
 
-it('emits the raw deadcore response while running deadcode analyze', function (): void {
-    [$projectRoot] = configureFakeDeadcoreCommand(deadcoreControllerReachabilityPayload());
-    bindFakeRuntimeSnapshotFactory($projectRoot);
+it('dispatches AnalyzeProjectTask through the runtime-backed deadcode analyze command', function (): void {
+    $transport = new class implements SupervisorTransport
+    {
+        public ?Task $receivedTask = null;
 
-    expect(Artisan::call('deadcode:analyze'))->toBe(0);
+        public function run(Task $task, callable $onFrame): array
+        {
+            $this->receivedTask = $task;
 
-    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+            $onFrame(['type' => 'task.progress', 'message' => 'Capturing runtime snapshot']);
 
-    expect($payload)->toBe(deadcoreControllerReachabilityPayload());
+            return [
+                'status' => 'ok',
+                'data' => [
+                    'findingCount' => 3,
+                    'reportPath' => '/tmp/deadcode-report.json',
+                ],
+            ];
+        }
+    };
 
-    File::deleteDirectory($projectRoot);
+    app()->instance(SupervisorTransport::class, $transport);
+
+    expect(Artisan::call('deadcode:analyze', ['projectPath' => '/workspace/app']))->toBe(0)
+        ->and($transport->receivedTask)->toBeInstanceOf(AnalyzeProjectTask::class)
+        ->and($transport->receivedTask?->projectPath)->toBe('/workspace/app')
+        ->and(Artisan::output())->toContain('Capturing runtime snapshot')
+        ->toContain('Findings: 3')
+        ->toContain('Report: /tmp/deadcode-report.json');
 });
 
-it('writes the raw deadcore response to the requested file', function (): void {
-    [$projectRoot] = configureFakeDeadcoreCommand(deadcoreControllerReachabilityPayload());
-    bindFakeRuntimeSnapshotFactory($projectRoot);
-    $target = $projectRoot.'/analysis.json';
+it('fails when the runtime result is missing a required key', function (string $missingKey): void {
+    bindAnalyzeTransport(['findingCount' => 3, 'reportPath' => '/tmp/deadcode-report.json'], $missingKey);
 
-    expect(Artisan::call('deadcode:analyze', ['--write' => $target]))->toBe(0)
-        ->and(File::exists($target))->toBeTrue()
-        ->and(json_decode((string) file_get_contents($target), true, 512, JSON_THROW_ON_ERROR))
-        ->toBe(deadcoreControllerReachabilityPayload());
+    expect(Artisan::call('deadcode:analyze'))->toBe(1)
+        ->and(Artisan::output())->toContain(sprintf('Runtime result missing required key [%s].', $missingKey));
+})->with([
+    'findingCount' => 'findingCount',
+    'reportPath' => 'reportPath',
+]);
 
-    File::deleteDirectory($projectRoot);
-});
+it('fails when the runtime result contains the wrong scalar type', function (string $key, mixed $value, string $expectedType): void {
+    bindAnalyzeTransport([$key => $value]);
 
-function configureFakeDeadcoreCommand(array $payload): array
+    expect(Artisan::call('deadcode:analyze'))->toBe(1)
+        ->and(Artisan::output())->toContain(sprintf('Runtime result key [%s] must be of type [%s].', $key, $expectedType));
+})->with([
+    'findingCount as string' => ['findingCount', '3', 'int'],
+    'reportPath as int' => ['reportPath', 3, 'string'],
+]);
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function bindAnalyzeTransport(array $overrides = [], ?string $missingKey = null): void
 {
-    $projectRoot = sys_get_temp_dir().'/deadcode-analyze-'.bin2hex(random_bytes(6));
-    $encodedPayload = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-    $script = sprintf(
-        <<<'PHP'
-$payload = %s;
-fwrite(STDOUT, $payload);
-PHP,
-        var_export($encodedPayload, true),
-    );
+    $data = array_merge([
+        'findingCount' => 3,
+        'reportPath' => '/tmp/deadcode-report.json',
+    ], $overrides);
 
-    $binaryPath = makePortablePhpCommand($projectRoot.'/bin', 'deadcore', $script);
+    if (is_string($missingKey)) {
+        unset($data[$missingKey]);
+    }
 
-    config()->set('oxcribe.deadcore.binary', $binaryPath);
-
-    return [$projectRoot, $binaryPath];
-}
-
-function bindFakeRuntimeSnapshotFactory(string $projectRoot): void
-{
-    app()->instance(RuntimeSnapshotFactory::class, new class($projectRoot) implements RuntimeSnapshotFactory
+    app()->instance(SupervisorTransport::class, new class($data) implements SupervisorTransport
     {
         public function __construct(
-            private readonly string $projectRoot,
+            /** @var array<string, mixed> */
+            private readonly array $data,
         ) {}
 
-        public function make(): RuntimeSnapshot
+        public function run(Task $task, callable $onFrame): array
         {
-            return new RuntimeSnapshot(
-                app: new AppSnapshot(
-                    basePath: $this->projectRoot,
-                    laravelVersion: '12.0.0',
-                    phpVersion: PHP_VERSION,
-                    appEnv: 'testing',
-                ),
-                routes: [],
-            );
+            return [
+                'status' => 'ok',
+                'data' => $this->data,
+            ];
         }
     });
 }
