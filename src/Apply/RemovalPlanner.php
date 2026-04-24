@@ -51,17 +51,20 @@ final class RemovalPlanner
             return true;
         }
 
-        if ($finding->category !== 'unused_command_class') {
+        if (! in_array($finding->category, [
+            'unused_command_class',
+            'unused_listener_class',
+        ], true)) {
             return false;
         }
 
-        return $this->hasExplicitIsolatedCommandRemoval($finding, $changeSets);
+        return $this->hasExplicitIsolatedClassRemoval($finding, $changeSets);
     }
 
     /**
      * @param  list<DeadCodeRemovalChangeSet>  $changeSets
      */
-    private function hasExplicitIsolatedCommandRemoval(DeadCodeFinding $finding, array $changeSets): bool
+    private function hasExplicitIsolatedClassRemoval(DeadCodeFinding $finding, array $changeSets): bool
     {
         $matchingChangeSetCount = 0;
         $sameFileChangeSetCount = 0;

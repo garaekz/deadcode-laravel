@@ -329,6 +329,113 @@ it('stages a high-confidence unused command class removal from an input file', f
     File::deleteDirectory($projectRoot);
 });
 
+it('plans a high-confidence unused listener class removal in dry run when the removal plan is explicit and isolated', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeListenerClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 1,
+        'changes' => [
+            [
+                'file' => 'app/Listeners/UnusedInventoryListener.php',
+                'symbol' => 'App\\Listeners\\UnusedInventoryListener',
+                'startLine' => 9,
+                'endLine' => 14,
+            ],
+        ],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents)
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeFalse();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('does not plan unused listener class removal when the removal plan is not isolated', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeListenerClassRemovalFixture(
+        changeSets: [
+            [
+                'file' => 'app/Listeners/UnusedInventoryListener.php',
+                'symbol' => 'App\\Listeners\\UnusedInventoryListener',
+                'start_line' => 9,
+                'end_line' => 14,
+            ],
+            [
+                'file' => 'app/Listeners/UnusedInventoryListener.php',
+                'symbol' => 'App\\Listeners\\UnusedInventoryListener::handle',
+                'start_line' => 11,
+                'end_line' => 13,
+            ],
+        ],
+    );
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 0,
+        'changes' => [],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('stages a high-confidence unused listener class removal from an input file', function () {
+    [$projectRoot, $analysisPath, $targetPath] = createDeadcodeListenerClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--stage' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'staged',
+        'changesApplied' => 1,
+        'plannedChanges' => 1,
+    ])->and(file_get_contents($targetPath))->toBe(deadcodeListenerClassStagedContents())
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeTrue();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('rolls back the latest staged unused listener class removal', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeListenerClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--stage' => true,
+    ]))->toBe(0);
+
+    expect(Artisan::call('deadcode:rollback'))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.rollback.v1',
+        'status' => 'rolled_back',
+        'changesRolledBack' => 1,
+    ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
 it('rolls back the latest staged unused command class removal', function () {
     [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeCommandClassRemovalFixture();
 
@@ -818,6 +925,119 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+
+
+PHP;
+}
+
+/**
+ * @param  list<array{file:string,symbol:string,start_line:int,end_line:int}>|null  $changeSets
+ */
+function createDeadcodeListenerClassRemovalFixture(?array $changeSets = null): array
+{
+    $fileContents = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Listeners;
+
+use App\Events\OrderShipped;
+
+final class UnusedInventoryListener
+{
+    public function handle(OrderShipped $event): void
+    {
+    }
+}
+PHP;
+
+    $projectRoot = sys_get_temp_dir().'/deadcode-listener-removal-'.bin2hex(random_bytes(6));
+    $targetPath = $projectRoot.'/app/Listeners/UnusedInventoryListener.php';
+    $analysisPath = $projectRoot.'/storage/app/deadcode/analysis.json';
+
+    File::ensureDirectoryExists(dirname($targetPath));
+    File::ensureDirectoryExists(dirname($analysisPath));
+
+    file_put_contents($targetPath, $fileContents);
+    file_put_contents(
+        $analysisPath,
+        json_encode(
+            deadcodeListenerClassRemovalPayload($changeSets),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        ),
+    );
+
+    app()->setBasePath($projectRoot);
+    app()->useStoragePath($projectRoot.'/storage');
+
+    return [$projectRoot, $analysisPath, $targetPath, $fileContents];
+}
+
+/**
+ * @param  list<array{file:string,symbol:string,start_line:int,end_line:int}>|null  $changeSets
+ */
+function deadcodeListenerClassRemovalPayload(?array $changeSets = null): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-listener-removal',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 21,
+            'cache_hits' => 1,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_listener',
+                'symbol' => 'App\\Listeners\\SendReachableShipmentNotification',
+                'source' => 'App\\Events\\OrderShipped',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'listener_class',
+                'symbol' => 'App\\Listeners\\UnusedInventoryListener',
+                'file' => 'app/Listeners/UnusedInventoryListener.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 9,
+                'endLine' => 14,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Listeners\\UnusedInventoryListener',
+                'category' => 'unused_listener_class',
+                'confidence' => 'high',
+                'file' => 'app/Listeners/UnusedInventoryListener.php',
+                'startLine' => 9,
+                'endLine' => 14,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => $changeSets ?? [
+                [
+                    'file' => 'app/Listeners/UnusedInventoryListener.php',
+                    'symbol' => 'App\\Listeners\\UnusedInventoryListener',
+                    'start_line' => 9,
+                    'end_line' => 14,
+                ],
+            ],
+        ],
+    ];
+}
+
+function deadcodeListenerClassStagedContents(): string
+{
+    return <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Listeners;
+
+use App\Events\OrderShipped;
 
 
 PHP;
