@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Oxhq\Oxcribe\Console;
 
 use Illuminate\Console\Command;
-use Oxhq\Oxcribe\Bridge\DeadCodeAnalysisRequestFactory;
-use Oxhq\Oxcribe\Bridge\ProcessDeadCodeClient;
-use Oxhq\Oxcribe\Contracts\RuntimeSnapshotFactory;
 use Oxhq\Oxcribe\Data\DeadCodeAnalysisResponse;
 use Oxhq\Oxcribe\Data\DeadCodeEntrypoint;
 use Oxhq\Oxcribe\Data\DeadCodeFinding;
@@ -20,13 +17,10 @@ final class ReportCommand extends Command
 
     protected $signature = 'deadcode:report {--input= : Existing deadcode.analysis.v1 payload to render} {--format=json : Output format [json|table]} {--write=} {--pretty}';
 
-    protected $description = 'Produce a local dead code report from the current Laravel runtime and deadcore analysis';
+    protected $description = 'Render a local dead code report from an existing analysis payload';
 
-    public function handle(
-        RuntimeSnapshotFactory $runtimeSnapshotFactory,
-        DeadCodeAnalysisRequestFactory $analysisRequestFactory,
-        ProcessDeadCodeClient $deadCodeClient,
-    ): int {
+    public function handle(): int
+    {
         $input = trim((string) $this->option('input'));
         $format = strtolower(trim((string) $this->option('format')));
 
@@ -36,16 +30,14 @@ final class ReportCommand extends Command
             return self::FAILURE;
         }
 
-        if ($input !== '') {
-            $response = $this->loadResponseFromInput($input);
-            $projectRoot = app()->basePath();
-        } else {
-            $runtime = $runtimeSnapshotFactory->make();
-            $request = $analysisRequestFactory->make($runtime);
-            $response = $deadCodeClient->analyze($request);
-            $projectRoot = $runtime->app->basePath;
+        if ($input === '') {
+            $this->error('Run `php artisan deadcode:analyze` first or pass `--input=` with an existing deadcode.analysis.v1 payload.');
+
+            return self::FAILURE;
         }
 
+        $response = $this->loadResponseFromInput($input);
+        $projectRoot = app()->basePath();
         $payload = $this->reportPayload($projectRoot, $response);
 
         if ($format === 'table') {

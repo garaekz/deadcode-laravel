@@ -11,13 +11,11 @@ Package CI is intended to run the same Pest suite across that matrix.
 
 ## Runtime/Static Split
 
-- runtime auth, middleware, guards, throttles and route registration live in `oxcribe`
-- static request/response/resource/package inference lives in `oxinfer`
-- OpenAPI `security` comes from runtime auth, not static authorization hints
-- static authorization hints are emitted as `x-oxcribe.authorizationStatic`
-- smart example synthesis belongs in `oxcribe`; `oxinfer` should only provide additive semantic metadata
-
-The current examples design note lives in [smart-examples-v1.md](smart-examples-v1.md).
+- Laravel runtime truth is captured by the supervisor-backed `deadcode:analyze {projectPath?}` flow.
+- `deadcode-supervisor` is resolved through `DEADCODE_SUPERVISOR_BINARY` or `deadcode.supervisor_binary`.
+- `deadcode:analyze` writes a `deadcode.analysis.v1` payload and prints the generated analysis payload path.
+- `deadcode:report --input=...` renders existing analysis payloads only; it does not run runtime capture or static analysis.
+- Remediation commands consume the same generated analysis payload.
 
 ## Hostile Fixture Apps
 
@@ -30,11 +28,12 @@ The package suite keeps real fixture apps instead of mocking the contract:
 
 Each fixture is expected to pass both:
 
-- `oxcribe:analyze`
-- `oxcribe:export-openapi`
+- `deadcode:analyze`
+- `deadcode:report --input=...`
 
 ## Current Non-Goals
 
 - Livewire
 - non-Laravel frameworks
-- deriving OpenAPI `security` from static authorization calls alone
+- automatic removal outside high-confidence supported change sets
+- report rendering without an existing analysis payload

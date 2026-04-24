@@ -29,8 +29,9 @@ If a release is missing those assets, the supported fallback is to configure `DE
 
 - install `deadcode/deadcode-laravel` in at least one real Laravel app
 - publish config
+- set `DEADCODE_SUPERVISOR_BINARY` when the host app cannot use the default `../go-supervisor/bin/deadcode-supervisor` path
 - run `php artisan deadcode:doctor`
 - run `php artisan deadcode:analyze`
-- run `php artisan deadcode:report --format=json --write=storage/app/deadcode-report.json --pretty`
+- run `php artisan deadcode:report --input=storage/app/deadcode/analysis.json --format=json --write=storage/app/deadcode-report.json --pretty`
 - inspect output for runtime progress, finding totals, report path generation, and rendered report contents
 - if you do not have an external app yet, rerun the owned-app smoke before tagging and clearly label the release as a preview

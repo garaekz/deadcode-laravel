@@ -1,100 +1,80 @@
 # Troubleshooting
 
-## Start With `oxcribe:doctor`
+## Start With `deadcode:doctor`
 
-For the first publish path, run:
+For the supervisor-backed analysis path, run:
 
 ```bash
-php artisan oxcribe:doctor
+php artisan deadcode:doctor
 ```
 
 That preflight checks:
 
 - the Laravel project root it is about to inspect
 - whether `composer.json` exists there
-- whether `oxcribe` can resolve and execute the `oxinfer` binary
-- whether local docs are enabled
-- whether `OXCLOUD_BASE_URL` and `OXCLOUD_TOKEN` are configured for publish
+- whether `deadcode` can resolve and execute the `deadcode-supervisor` binary
+- whether the configured supervisor timeout is valid
 
-If you only care about local analysis and OpenAPI output, skip the cloud checks:
-
-```bash
-php artisan oxcribe:doctor --skip-cloud
-```
-
-## Common First-Publish Failures
-
-### `Unable to find the oxinfer binary`
-
-Fast path:
-
-```bash
-php artisan oxcribe:install-binary v0.1.4
-```
-
-If the tagged GitHub release is missing binary assets or `checksums.txt`, switch to a source-backed install:
-
-```bash
-php artisan oxcribe:install-binary v0.1.4 --source-root=/absolute/path/to/oxinfer --prefer-source
-```
-
-Manual fallback:
-
-```bash
-cargo build --locked --release
-```
-
-Then either:
-
-- put the binary on `PATH`
-- place it at `bin/oxinfer` inside the Laravel app
-- or point `OXINFER_BINARY` to the executable path
-
-If you keep `oxinfer` checked out locally, set `OXINFER_SOURCE_ROOT` so future `oxcribe:install-binary` runs can build from source automatically when a release is incomplete.
-
-### Publish token or cloud URL is missing
-
-Set:
+If the supervisor binary is outside the default path, configure it explicitly:
 
 ```env
-OXCLOUD_BASE_URL=https://your-oxcloud-host
-OXCLOUD_TOKEN=your-project-publish-token
+DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
+DEADCODE_SUPERVISOR_TIMEOUT=300
 ```
 
 Then rerun:
 
 ```bash
-php artisan oxcribe:doctor
-php artisan oxcribe:publish --publish-version=dev
+php artisan deadcode:doctor
+```
+
+## Common Analysis Failures
+
+### `Unable to find the supervisor binary`
+
+Set `DEADCODE_SUPERVISOR_BINARY` to the executable used by `deadcode:analyze`:
+
+```env
+DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
+```
+
+Then verify the path:
+
+```bash
+php artisan deadcode:doctor
 ```
 
 ### Project root is wrong
 
-If `oxcribe` is pointed at the wrong Laravel app, override it directly:
+If `deadcode` is pointed at the wrong Laravel app, pass the app root explicitly:
 
 ```bash
-php artisan oxcribe:doctor --project-root=/absolute/path/to/app
-php artisan oxcribe:publish --project-root=/absolute/path/to/app --publish-version=dev
+php artisan deadcode:doctor --project-root=/absolute/path/to/app
+php artisan deadcode:analyze /absolute/path/to/app
 ```
 
-### Local docs are disabled
+### `deadcode:report` says an input is required
 
-If you want the package-owned viewer locally, enable:
+`deadcode:report` renders an existing `deadcode.analysis.v1` payload. It no longer runs analysis itself.
 
-```env
-OXCRIBE_DOCS_ENABLED=true
+Run analysis first and use the report path printed by the command:
+
+```bash
+php artisan deadcode:analyze
+php artisan deadcode:report --input=storage/app/deadcode/analysis.json --format=table
 ```
 
-Then use:
+You can also render JSON and write the rendered report to a separate file:
 
-- `GET /oxcribe/docs`
-- `GET /oxcribe/openapi.json`
-- `GET /oxcribe/docs/payload.json`
+```bash
+php artisan deadcode:report --input=storage/app/deadcode/analysis.json --format=json --write=storage/app/deadcode-report.json --pretty
+```
 
 ## After Setup Is Green
 
-Once `doctor`, `analyze`, and `export-openapi` are working on your app, publish a preview version and inspect the hosted docs and OpenAPI output before broad rollout:
+Once `doctor` and `analyze` are working on your app, inspect the generated analysis payload and render it with `deadcode:report` before staging removals:
 
 ```bash
-php artisan oxcribe:publish --publish-version=preview
+php artisan deadcode:report --input=storage/app/deadcode/analysis.json --format=table
+php artisan deadcode:apply --input=storage/app/deadcode/analysis.json --dry-run
 ```
