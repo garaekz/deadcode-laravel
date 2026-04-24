@@ -338,3 +338,62 @@ function deadcoreListenerReachabilityPayload(): array
         ],
     ];
 }
+
+function deadcoreSubscriberReachabilityPayload(): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-subscriber-reachability',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 33,
+            'cache_hits' => 2,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_subscriber',
+                'symbol' => 'App\\Subscribers\\ReachableOrderSubscriber',
+                'source' => 'App\\Events\\OrderShipped',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'subscriber_class',
+                'symbol' => 'App\\Subscribers\\ReachableOrderSubscriber',
+                'file' => 'app/Subscribers/ReachableOrderSubscriber.php',
+                'reachableFromRuntime' => true,
+                'startLine' => 10,
+                'endLine' => 20,
+            ],
+            [
+                'kind' => 'subscriber_class',
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 10,
+                'endLine' => 20,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                'category' => 'unused_subscriber_class',
+                'confidence' => 'high',
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'startLine' => 10,
+                'endLine' => 20,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => [
+                [
+                    'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                    'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                    'start_line' => 10,
+                    'end_line' => 20,
+                ],
+            ],
+        ],
+    ];
+}

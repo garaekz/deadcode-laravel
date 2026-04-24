@@ -102,3 +102,26 @@ it('serializes the listener reachability payload back to the wire shape', functi
     expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
         ->toBe(deadcoreListenerReachabilityPayload());
 });
+
+it('parses the subscriber reachability symbol kind and finding category', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcoreSubscriberReachabilityPayload());
+
+    expect($response->entrypoints)->toHaveCount(1)
+        ->and($response->entrypoints[0]->kind)->toBe('runtime_subscriber')
+        ->and($response->entrypoints[0]->source)->toBe('App\\Events\\OrderShipped')
+        ->and($response->symbols)->toHaveCount(2)
+        ->and($response->symbols[0]->kind)->toBe('subscriber_class')
+        ->and($response->symbols[0]->reachableFromRuntime)->toBeTrue()
+        ->and($response->symbols[1]->kind)->toBe('subscriber_class')
+        ->and($response->symbols[1]->reachableFromRuntime)->toBeFalse()
+        ->and($response->findings)->toHaveCount(1)
+        ->and($response->findings[0]->category)->toBe('unused_subscriber_class')
+        ->and($response->removalPlan->changeSets)->toHaveCount(1);
+});
+
+it('serializes the subscriber reachability payload back to the wire shape', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcoreSubscriberReachabilityPayload());
+
+    expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
+        ->toBe(deadcoreSubscriberReachabilityPayload());
+});

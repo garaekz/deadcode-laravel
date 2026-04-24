@@ -194,6 +194,52 @@ it('renders listener reachability categories from an input file', function () {
     File::deleteDirectory($projectRoot);
 });
 
+it('renders subscriber reachability categories from an input file', function () {
+    [$projectRoot, $analysisPath] = createDeadcodeRemediationFixture(deadcoreSubscriberReachabilityPayload());
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'json',
+    ]))->toBe(0);
+
+    $jsonPayload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($jsonPayload)->toMatchArray([
+        'contractVersion' => 'deadcode.report.v1',
+        'projectRoot' => $projectRoot,
+        'requestId' => 'req-subscriber-reachability',
+        'status' => 'ok',
+        'summary' => [
+            'entrypointCount' => 1,
+            'symbolCount' => 2,
+            'reachableSymbolCount' => 1,
+            'unreachableSymbolCount' => 1,
+            'findingCount' => 1,
+            'removalChangeCount' => 1,
+        ],
+    ])->and(array_column($jsonPayload['entrypoints'], 'kind'))->toBe(['runtime_subscriber'])
+        ->and(array_column($jsonPayload['symbols'], 'kind'))->toBe([
+            'subscriber_class',
+            'subscriber_class',
+        ])
+        ->and(array_column($jsonPayload['findings'], 'category'))->toBe([
+            'unused_subscriber_class',
+        ]);
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'table',
+    ]))->toBe(0);
+
+    $tableOutput = Artisan::output();
+
+    expect($tableOutput)->toContain('App\\Subscribers\\UnusedInventorySubscriber')
+        ->and($tableOutput)->toContain('unused_subscriber_class')
+        ->and($tableOutput)->toContain('app/Subscribers/UnusedInventorySubscriber.php');
+
+    File::deleteDirectory($projectRoot);
+});
+
 it('requires an existing analysis input before rendering a deadcode report', function () {
     expect(Artisan::call('deadcode:report', [
         '--format' => 'json',
@@ -417,6 +463,113 @@ it('stages a high-confidence unused listener class removal from an input file', 
 
 it('rolls back the latest staged unused listener class removal', function () {
     [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeListenerClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--stage' => true,
+    ]))->toBe(0);
+
+    expect(Artisan::call('deadcode:rollback'))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.rollback.v1',
+        'status' => 'rolled_back',
+        'changesRolledBack' => 1,
+    ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('plans a high-confidence unused subscriber class removal in dry run when the removal plan is explicit and isolated', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeSubscriberClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 1,
+        'changes' => [
+            [
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                'startLine' => 10,
+                'endLine' => 20,
+            ],
+        ],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents)
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeFalse();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('does not plan unused subscriber class removal when the removal plan is not isolated', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeSubscriberClassRemovalFixture(
+        changeSets: [
+            [
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                'start_line' => 10,
+                'end_line' => 20,
+            ],
+            [
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber::subscribe',
+                'start_line' => 12,
+                'end_line' => 18,
+            ],
+        ],
+    );
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 0,
+        'changes' => [],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('stages a high-confidence unused subscriber class removal from an input file', function () {
+    [$projectRoot, $analysisPath, $targetPath] = createDeadcodeSubscriberClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--stage' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'staged',
+        'changesApplied' => 1,
+        'plannedChanges' => 1,
+    ])->and(file_get_contents($targetPath))->toBe(deadcodeSubscriberClassStagedContents())
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeTrue();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('rolls back the latest staged unused subscriber class removal', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeSubscriberClassRemovalFixture();
 
     expect(Artisan::call('deadcode:apply', [
         '--input' => $analysisPath,
@@ -1038,6 +1191,126 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use App\Events\OrderShipped;
+
+
+PHP;
+}
+
+/**
+ * @param  list<array{file:string,symbol:string,start_line:int,end_line:int}>|null  $changeSets
+ */
+function createDeadcodeSubscriberClassRemovalFixture(?array $changeSets = null): array
+{
+    $fileContents = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Subscribers;
+
+use App\Events\OrderShipped;
+use Illuminate\Events\Dispatcher;
+
+final class UnusedInventorySubscriber
+{
+    public function subscribe(Dispatcher $events): void
+    {
+        $events->listen(OrderShipped::class, self::class.'@handle');
+    }
+
+    public function handle(OrderShipped $event): void
+    {
+    }
+}
+PHP;
+
+    $projectRoot = sys_get_temp_dir().'/deadcode-subscriber-removal-'.bin2hex(random_bytes(6));
+    $targetPath = $projectRoot.'/app/Subscribers/UnusedInventorySubscriber.php';
+    $analysisPath = $projectRoot.'/storage/app/deadcode/analysis.json';
+
+    File::ensureDirectoryExists(dirname($targetPath));
+    File::ensureDirectoryExists(dirname($analysisPath));
+
+    file_put_contents($targetPath, $fileContents);
+    file_put_contents(
+        $analysisPath,
+        json_encode(
+            deadcodeSubscriberClassRemovalPayload($changeSets),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        ),
+    );
+
+    app()->setBasePath($projectRoot);
+    app()->useStoragePath($projectRoot.'/storage');
+
+    return [$projectRoot, $analysisPath, $targetPath, $fileContents];
+}
+
+/**
+ * @param  list<array{file:string,symbol:string,start_line:int,end_line:int}>|null  $changeSets
+ */
+function deadcodeSubscriberClassRemovalPayload(?array $changeSets = null): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-subscriber-removal',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 22,
+            'cache_hits' => 1,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_subscriber',
+                'symbol' => 'App\\Subscribers\\ReachableOrderSubscriber',
+                'source' => 'App\\Events\\OrderShipped',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'subscriber_class',
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 10,
+                'endLine' => 20,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                'category' => 'unused_subscriber_class',
+                'confidence' => 'high',
+                'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                'startLine' => 10,
+                'endLine' => 20,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => $changeSets ?? [
+                [
+                    'file' => 'app/Subscribers/UnusedInventorySubscriber.php',
+                    'symbol' => 'App\\Subscribers\\UnusedInventorySubscriber',
+                    'start_line' => 10,
+                    'end_line' => 20,
+                ],
+            ],
+        ],
+    ];
+}
+
+function deadcodeSubscriberClassStagedContents(): string
+{
+    return <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Subscribers;
+
+use App\Events\OrderShipped;
+use Illuminate\Events\Dispatcher;
 
 
 PHP;
