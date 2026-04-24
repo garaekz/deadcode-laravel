@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Oxhq\Oxcribe\Console;
 
+use Deadcode\Support\SupervisorBinaryResolver;
 use Illuminate\Console\Command;
 use Oxhq\Oxcribe\Support\OxinferBinaryResolver;
 use Oxhq\Oxcribe\Support\PackageVersion;
@@ -14,10 +15,11 @@ final class DoctorCommand extends Command
 {
     protected $signature = 'deadcode:doctor {--project-root= : Override the Laravel app root to inspect}';
 
-    protected $description = 'Run a local deadcode preflight for the target Laravel app and deadcore binary';
+    protected $description = 'Run a local deadcode preflight for the target Laravel app and runtime binaries';
 
     public function handle(): int
     {
+        $deadcodeConfig = (array) config('deadcode', []);
         $deadcoreConfig = (array) config('oxcribe.deadcore', []);
         $analysisConfig = (array) config('oxcribe.analysis.scan', []);
         $projectRoot = $this->resolveProjectRoot($deadcoreConfig);
@@ -55,6 +57,15 @@ final class DoctorCommand extends Command
             $this->report('WARN', 'Analysis targets', 'No scan targets are configured under oxcribe.analysis.scan.targets.');
         } else {
             $this->report('PASS', 'Analysis targets', implode(', ', $targets));
+        }
+
+        try {
+            $supervisorBinary = (new SupervisorBinaryResolver)->resolve($deadcodeConfig, base_path());
+            $this->report('PASS', 'Supervisor binary', $supervisorBinary);
+        } catch (RuntimeException $exception) {
+            $blocking = true;
+            $this->report('FAIL', 'Supervisor binary', $exception->getMessage());
+            $this->line('      Next: set DEADCODE_SUPERVISOR_BINARY to the deadcode-supervisor executable used by `deadcode:analyze`.');
         }
 
         try {

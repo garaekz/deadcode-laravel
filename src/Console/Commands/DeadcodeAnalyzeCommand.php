@@ -29,10 +29,10 @@ final class DeadcodeAnalyzeCommand extends Command
             );
 
             $findingCount = $this->requireIntResultValue($result->data, 'findingCount');
-            $reportPath = $this->requireStringResultValue($result->data, 'reportPath');
+            $analysisPath = $this->requireStringResultValue($result->data, 'analysisPath');
 
             $this->components->info('Findings: '.$findingCount);
-            $this->components->info('Report: '.$reportPath);
+            $this->components->info('Analysis: '.$analysisPath);
 
             return self::SUCCESS;
         } catch (Throwable $exception) {
@@ -43,7 +43,7 @@ final class DeadcodeAnalyzeCommand extends Command
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function requireIntResultValue(array $data, string $key): int
     {
@@ -61,7 +61,7 @@ final class DeadcodeAnalyzeCommand extends Command
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function requireStringResultValue(array $data, string $key): string
     {

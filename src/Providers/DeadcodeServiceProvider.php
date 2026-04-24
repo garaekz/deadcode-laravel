@@ -7,6 +7,7 @@ namespace Deadcode\Providers;
 use Deadcode\Runtime\Runtime;
 use Deadcode\Runtime\Supervisor\GoSupervisorProcessTransport;
 use Deadcode\Runtime\Supervisor\SupervisorTransport;
+use Deadcode\Support\SupervisorBinaryResolver;
 use Deadcode\Tasks\AnalyzeProjectTask;
 use Deadcode\Tasks\AnalyzeProjectTaskHandler;
 use Illuminate\Support\ServiceProvider;
@@ -19,7 +20,10 @@ final class DeadcodeServiceProvider extends ServiceProvider
 
         $this->app->singleton(SupervisorTransport::class, function ($app): SupervisorTransport {
             return new GoSupervisorProcessTransport(
-                binary: (string) $app['config']->get('deadcode.supervisor_binary'),
+                binary: (new SupervisorBinaryResolver)->resolve(
+                    (array) $app['config']->get('deadcode', []),
+                    $app->basePath(),
+                ),
                 timeout: (int) $app['config']->get('deadcode.supervisor_timeout'),
             );
         });

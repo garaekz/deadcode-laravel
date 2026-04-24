@@ -26,6 +26,7 @@ final readonly class GoSupervisorProcessTransport implements SupervisorTransport
             'type' => 'task.run',
             'taskId' => $taskId,
             'name' => $task->name(),
+            'taskClass' => $task::class,
             'payload' => $task->payload(),
         ]));
 
@@ -82,10 +83,33 @@ final readonly class GoSupervisorProcessTransport implements SupervisorTransport
         }
 
         $frame = FrameCodec::decode($line);
+
+        if (($frame['type'] ?? null) === 'task.completed') {
+            $this->forwardNestedEvents($frame, $onFrame);
+        }
+
         $onFrame($frame);
 
         if (($frame['type'] ?? null) === 'task.completed') {
             $result = $frame['result'] ?? null;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $frame
+     */
+    private function forwardNestedEvents(array $frame, callable $onFrame): void
+    {
+        $events = $frame['result']['events'] ?? null;
+
+        if (! is_array($events)) {
+            return;
+        }
+
+        foreach ($events as $event) {
+            if (is_array($event)) {
+                $onFrame($event);
+            }
         }
     }
 }

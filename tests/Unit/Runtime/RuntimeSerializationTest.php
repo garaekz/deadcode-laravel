@@ -6,7 +6,8 @@ use Deadcode\Runtime\Contracts\Task;
 use Deadcode\Runtime\TaskResult;
 
 it('serializes a task payload and task result with stable keys', function (): void {
-    $task = new class ('C:/repo', 'json') implements Task {
+    $task = new class('C:/repo', 'json') implements Task
+    {
         public function __construct(
             private readonly string $projectPath,
             private readonly string $format,
@@ -28,7 +29,7 @@ it('serializes a task payload and task result with stable keys', function (): vo
 
     $result = new TaskResult(
         status: 'ok',
-        data: ['reportPath' => 'storage/app/deadcode/report.json'],
+        data: ['analysisPath' => 'storage/app/deadcode/analysis.json'],
         meta: ['durationMs' => 42],
     );
 
@@ -38,6 +39,6 @@ it('serializes a task payload and task result with stable keys', function (): vo
         'format' => 'json',
     ]);
     expect($result->status)->toBe('ok');
-    expect($result->data)->toBe(['reportPath' => 'storage/app/deadcode/report.json']);
+    expect($result->data)->toBe(['analysisPath' => 'storage/app/deadcode/analysis.json']);
     expect($result->meta)->toBe(['durationMs' => 42]);
 });

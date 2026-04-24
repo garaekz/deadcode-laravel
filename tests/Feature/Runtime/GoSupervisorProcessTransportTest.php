@@ -4,6 +4,64 @@ declare(strict_types=1);
 
 use Deadcode\Runtime\Contracts\Task;
 use Deadcode\Runtime\Supervisor\GoSupervisorProcessTransport;
+use Tests\Fixtures\Runtime\FixtureTask;
+
+it('emits a worker-executable task run frame with observable name and task class', function (): void {
+    $packageRoot = dirname(__DIR__, 3);
+    $tempDir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'deadcode-worker-transport-'.bin2hex(random_bytes(8));
+    mkdir($tempDir, 0777, true);
+
+    $capturedFramePath = $tempDir.DIRECTORY_SEPARATOR.'task-run-frame.json';
+    $workerPath = $packageRoot.'/bin/ox-runtime-worker.php';
+    $bootstrapPath = $packageRoot.'/tests/Fixtures/Runtime/fixture-bootstrap-app.php';
+    $binary = makePortablePhpCommand($tempDir, 'worker-relay', sprintf(<<<'PHP'
+require %s;
+
+$input = (string) stream_get_contents(STDIN);
+file_put_contents(%s, $input);
+
+$process = new \Symfony\Component\Process\Process([
+    PHP_BINARY,
+    %s,
+    '--bootstrap='.%s,
+    '--once',
+], %s);
+$process->setInput($input);
+$process->run();
+
+if ($process->isSuccessful()) {
+    fwrite(STDOUT, $process->getOutput());
+}
+
+fwrite(STDERR, $process->getErrorOutput());
+exit($process->getExitCode() ?? 1);
+PHP, var_export($packageRoot.'/vendor/autoload.php', true), var_export($capturedFramePath, true), var_export($workerPath, true), var_export($bootstrapPath, true), var_export($packageRoot, true)));
+
+    $transport = new GoSupervisorProcessTransport($binary, 5);
+
+    $frames = [];
+    $result = $transport->run(new FixtureTask('demo'), function (array $frame) use (&$frames): void {
+        $frames[] = $frame;
+    });
+
+    $capturedFrame = json_decode(trim((string) file_get_contents($capturedFramePath)), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($capturedFrame)->toMatchArray([
+        'type' => 'task.run',
+        'name' => 'fixture.task',
+        'taskClass' => FixtureTask::class,
+        'payload' => ['name' => 'demo'],
+    ]);
+    expect($capturedFrame['taskId'])->toBeString()->not->toBe('');
+    expect($frames)->toHaveCount(2);
+    expect($frames[0]['type'])->toBe('task.progress');
+    expect($frames[0]['message'])->toBe('hello demo');
+    expect($frames[0]['taskId'])->toBe($capturedFrame['taskId']);
+    expect($frames[1]['type'])->toBe('task.completed');
+    expect($frames[1]['taskId'])->toBe($capturedFrame['taskId']);
+    expect($result['status'])->toBe('ok');
+    expect($result['data'])->toBe(['message' => 'hello demo']);
+});
 
 it('streams supervisor frames before process completion and uses a unique task id per run', function (): void {
     $tempDir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'deadcode-transport-'.bin2hex(random_bytes(8));
