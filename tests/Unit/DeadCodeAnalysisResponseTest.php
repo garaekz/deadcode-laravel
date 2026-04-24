@@ -57,6 +57,30 @@ it('serializes the phase 2 http-adjacent payload back to the wire shape', functi
         ->toBe(deadcorePhaseTwoHttpAdjacencyPayload());
 });
 
+it('parses the policy reachability symbol kind and finding category', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcorePolicyReachabilityPayload());
+
+    expect($response->entrypoints)->toHaveCount(1)
+        ->and($response->entrypoints[0]->kind)->toBe('runtime_policy')
+        ->and($response->entrypoints[0]->symbol)->toBe('App\\Policies\\OrderPolicy')
+        ->and($response->entrypoints[0]->source)->toBe('App\\Models\\Order')
+        ->and($response->symbols)->toHaveCount(2)
+        ->and($response->symbols[0]->kind)->toBe('policy_class')
+        ->and($response->symbols[0]->reachableFromRuntime)->toBeTrue()
+        ->and($response->symbols[1]->kind)->toBe('policy_class')
+        ->and($response->symbols[1]->reachableFromRuntime)->toBeFalse()
+        ->and($response->findings)->toHaveCount(1)
+        ->and($response->findings[0]->category)->toBe('unused_policy_class')
+        ->and($response->removalPlan->changeSets)->toHaveCount(1);
+});
+
+it('serializes the policy reachability payload back to the wire shape', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcorePolicyReachabilityPayload());
+
+    expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
+        ->toBe(deadcorePolicyReachabilityPayload());
+});
+
 it('parses the command reachability symbol kind and finding category', function () {
     $response = DeadCodeAnalysisResponse::fromArray(deadcoreCommandReachabilityPayload());
 

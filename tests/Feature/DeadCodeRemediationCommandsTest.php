@@ -102,6 +102,52 @@ it('renders phase 2 http-adjacent categories from an input file', function () {
     File::deleteDirectory($projectRoot);
 });
 
+it('renders policy reachability categories from an input file', function () {
+    [$projectRoot, $analysisPath] = createDeadcodeRemediationFixture(deadcorePolicyReachabilityPayload());
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'json',
+    ]))->toBe(0);
+
+    $jsonPayload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($jsonPayload)->toMatchArray([
+        'contractVersion' => 'deadcode.report.v1',
+        'projectRoot' => $projectRoot,
+        'requestId' => 'req-policy-reachability',
+        'status' => 'ok',
+        'summary' => [
+            'entrypointCount' => 1,
+            'symbolCount' => 2,
+            'reachableSymbolCount' => 1,
+            'unreachableSymbolCount' => 1,
+            'findingCount' => 1,
+            'removalChangeCount' => 1,
+        ],
+    ])->and(array_column($jsonPayload['entrypoints'], 'kind'))->toBe(['runtime_policy'])
+        ->and(array_column($jsonPayload['symbols'], 'kind'))->toBe([
+            'policy_class',
+            'policy_class',
+        ])
+        ->and(array_column($jsonPayload['findings'], 'category'))->toBe([
+            'unused_policy_class',
+        ]);
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'table',
+    ]))->toBe(0);
+
+    $tableOutput = Artisan::output();
+
+    expect($tableOutput)->toContain('App\\Policies\\UnusedInvoicePolicy')
+        ->and($tableOutput)->toContain('unused_policy_class')
+        ->and($tableOutput)->toContain('app/Policies/UnusedInvoicePolicy.php');
+
+    File::deleteDirectory($projectRoot);
+});
+
 it('renders command reachability categories from an input file', function () {
     [$projectRoot, $analysisPath] = createDeadcodeRemediationFixture(deadcoreCommandReachabilityPayload());
 
@@ -482,6 +528,28 @@ it('does not plan unused listener class removal when the removal plan is not iso
         'plannedChanges' => 0,
         'changes' => [],
     ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('does not plan unused policy class removal even when the removal plan is explicit', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodePolicyClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 0,
+        'changes' => [],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents)
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeFalse();
 
     File::deleteDirectory($projectRoot);
 });

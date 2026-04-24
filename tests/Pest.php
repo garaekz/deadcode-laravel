@@ -221,6 +221,65 @@ function deadcorePhaseTwoHttpAdjacencyPayload(): array
     ];
 }
 
+function deadcorePolicyReachabilityPayload(): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-policy-reachability',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 27,
+            'cache_hits' => 2,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_policy',
+                'symbol' => 'App\\Policies\\OrderPolicy',
+                'source' => 'App\\Models\\Order',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'policy_class',
+                'symbol' => 'App\\Policies\\OrderPolicy',
+                'file' => 'app/Policies/OrderPolicy.php',
+                'reachableFromRuntime' => true,
+                'startLine' => 9,
+                'endLine' => 22,
+            ],
+            [
+                'kind' => 'policy_class',
+                'symbol' => 'App\\Policies\\UnusedInvoicePolicy',
+                'file' => 'app/Policies/UnusedInvoicePolicy.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 9,
+                'endLine' => 22,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Policies\\UnusedInvoicePolicy',
+                'category' => 'unused_policy_class',
+                'confidence' => 'high',
+                'file' => 'app/Policies/UnusedInvoicePolicy.php',
+                'startLine' => 9,
+                'endLine' => 22,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => [
+                [
+                    'file' => 'app/Policies/UnusedInvoicePolicy.php',
+                    'symbol' => 'App\\Policies\\UnusedInvoicePolicy',
+                    'start_line' => 9,
+                    'end_line' => 22,
+                ],
+            ],
+        ],
+    ];
+}
+
 function deadcoreCommandReachabilityPayload(): array
 {
     return [
@@ -455,4 +514,44 @@ function deadcoreJobReachabilityPayload(): array
             ],
         ],
     ];
+}
+
+function createDeadcodePolicyClassRemovalFixture(): array
+{
+    $fileContents = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Policies;
+
+use App\Models\Invoice;
+use App\Models\User;
+
+final class UnusedInvoicePolicy
+{
+    public function view(User $user, Invoice $invoice): bool
+    {
+        return $user->id === $invoice->user_id;
+    }
+}
+PHP;
+
+    $projectRoot = sys_get_temp_dir().'/deadcode-policy-removal-'.bin2hex(random_bytes(6));
+    $targetPath = $projectRoot.'/app/Policies/UnusedInvoicePolicy.php';
+    $analysisPath = $projectRoot.'/storage/app/deadcode/analysis.json';
+
+    File::ensureDirectoryExists(dirname($targetPath));
+    File::ensureDirectoryExists(dirname($analysisPath));
+
+    file_put_contents($targetPath, $fileContents);
+    file_put_contents(
+        $analysisPath,
+        json_encode(deadcorePolicyReachabilityPayload(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+    );
+
+    app()->setBasePath($projectRoot);
+    app()->useStoragePath($projectRoot.'/storage');
+
+    return [$projectRoot, $analysisPath, $targetPath, $fileContents];
 }
