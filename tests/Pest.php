@@ -516,6 +516,145 @@ function deadcoreJobReachabilityPayload(): array
     ];
 }
 
+function deadcorePhaseFourModelPayload(): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-phase4-models',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 41,
+            'cache_hits' => 3,
+            'cache_misses' => 2,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_route',
+                'symbol' => 'App\\Http\\Controllers\\InvoiceController::show',
+                'source' => 'invoices.show',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'model_method',
+                'symbol' => 'App\\Models\\Invoice::summary',
+                'file' => 'app/Models/Invoice.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 12,
+                'endLine' => 16,
+            ],
+            [
+                'kind' => 'model_scope',
+                'symbol' => 'App\\Models\\Invoice::published',
+                'file' => 'app/Models/Invoice.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 18,
+                'endLine' => 22,
+            ],
+            [
+                'kind' => 'model_relationship',
+                'symbol' => 'App\\Models\\Invoice::customer',
+                'file' => 'app/Models/Invoice.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 24,
+                'endLine' => 28,
+            ],
+            [
+                'kind' => 'model_accessor',
+                'symbol' => 'App\\Models\\User::display_name',
+                'file' => 'app/Models/User.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 10,
+                'endLine' => 13,
+            ],
+            [
+                'kind' => 'model_mutator',
+                'symbol' => 'App\\Models\\User::display_name',
+                'file' => 'app/Models/User.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 15,
+                'endLine' => 18,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Models\\Invoice::summary',
+                'category' => 'unused_model_method',
+                'confidence' => 'high',
+                'file' => 'app/Models/Invoice.php',
+                'startLine' => 12,
+                'endLine' => 16,
+            ],
+            [
+                'symbol' => 'App\\Models\\Invoice::published',
+                'category' => 'unused_model_scope',
+                'confidence' => 'high',
+                'file' => 'app/Models/Invoice.php',
+                'startLine' => 18,
+                'endLine' => 22,
+            ],
+            [
+                'symbol' => 'App\\Models\\Invoice::customer',
+                'category' => 'unused_model_relationship',
+                'confidence' => 'high',
+                'file' => 'app/Models/Invoice.php',
+                'startLine' => 24,
+                'endLine' => 28,
+            ],
+            [
+                'symbol' => 'App\\Models\\User::display_name',
+                'category' => 'unused_model_accessor',
+                'confidence' => 'high',
+                'file' => 'app/Models/User.php',
+                'startLine' => 10,
+                'endLine' => 13,
+            ],
+            [
+                'symbol' => 'App\\Models\\User::display_name',
+                'category' => 'unused_model_mutator',
+                'confidence' => 'high',
+                'file' => 'app/Models/User.php',
+                'startLine' => 15,
+                'endLine' => 18,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => [
+                [
+                    'file' => 'app/Models/Invoice.php',
+                    'symbol' => 'App\\Models\\Invoice::summary',
+                    'start_line' => 12,
+                    'end_line' => 16,
+                ],
+                [
+                    'file' => 'app/Models/Invoice.php',
+                    'symbol' => 'App\\Models\\Invoice::published',
+                    'start_line' => 18,
+                    'end_line' => 22,
+                ],
+                [
+                    'file' => 'app/Models/Invoice.php',
+                    'symbol' => 'App\\Models\\Invoice::customer',
+                    'start_line' => 24,
+                    'end_line' => 28,
+                ],
+                [
+                    'file' => 'app/Models/User.php',
+                    'symbol' => 'App\\Models\\User::display_name',
+                    'start_line' => 10,
+                    'end_line' => 13,
+                ],
+                [
+                    'file' => 'app/Models/User.php',
+                    'symbol' => 'App\\Models\\User::display_name',
+                    'start_line' => 15,
+                    'end_line' => 18,
+                ],
+            ],
+        ],
+    ];
+}
+
 function createDeadcodePolicyClassRemovalFixture(): array
 {
     $fileContents = <<<'PHP'

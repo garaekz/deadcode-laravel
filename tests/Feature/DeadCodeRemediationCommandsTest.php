@@ -332,6 +332,63 @@ it('renders job reachability categories from an input file', function () {
     File::deleteDirectory($projectRoot);
 });
 
+it('renders phase 4 model-heavy categories from an input file', function () {
+    [$projectRoot, $analysisPath] = createDeadcodeRemediationFixture(deadcorePhaseFourModelPayload());
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'json',
+    ]))->toBe(0);
+
+    $jsonPayload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($jsonPayload)->toMatchArray([
+        'contractVersion' => 'deadcode.report.v1',
+        'projectRoot' => $projectRoot,
+        'requestId' => 'req-phase4-models',
+        'status' => 'ok',
+        'summary' => [
+            'entrypointCount' => 1,
+            'symbolCount' => 5,
+            'reachableSymbolCount' => 0,
+            'unreachableSymbolCount' => 5,
+            'findingCount' => 5,
+            'removalChangeCount' => 5,
+        ],
+    ])->and(array_column($jsonPayload['symbols'], 'kind'))->toBe([
+        'model_method',
+        'model_scope',
+        'model_relationship',
+        'model_accessor',
+        'model_mutator',
+    ])->and(array_column($jsonPayload['findings'], 'category'))->toBe([
+        'unused_model_method',
+        'unused_model_scope',
+        'unused_model_relationship',
+        'unused_model_accessor',
+        'unused_model_mutator',
+    ]);
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'table',
+    ]))->toBe(0);
+
+    $tableOutput = Artisan::output();
+
+    expect($tableOutput)->toContain('App\\Models\\Invoice::summary')
+        ->and($tableOutput)->toContain('unused_model_method')
+        ->and($tableOutput)->toContain('App\\Models\\Invoice::published')
+        ->and($tableOutput)->toContain('unused_model_scope')
+        ->and($tableOutput)->toContain('App\\Models\\Invoice::customer')
+        ->and($tableOutput)->toContain('unused_model_relationship')
+        ->and($tableOutput)->toContain('App\\Models\\User::display_name')
+        ->and($tableOutput)->toContain('unused_model_accessor')
+        ->and($tableOutput)->toContain('unused_model_mutator');
+
+    File::deleteDirectory($projectRoot);
+});
+
 it('requires an existing analysis input before rendering a deadcode report', function () {
     expect(Artisan::call('deadcode:report', [
         '--format' => 'json',
@@ -549,6 +606,30 @@ it('does not plan unused policy class removal even when the removal plan is expl
         'plannedChanges' => 0,
         'changes' => [],
     ])->and(file_get_contents($targetPath))->toBe($originalContents)
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeFalse();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('does not plan phase 4 model-heavy removals even when the removal plan is explicit', function () {
+    [$projectRoot, $analysisPath, $controllerPath, $originalContents] = createDeadcodeRemediationFixture(
+        deadcorePhaseFourModelPayload(),
+    );
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 0,
+        'changes' => [],
+    ])->and(file_get_contents($controllerPath))->toBe($originalContents)
         ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeFalse();
 
     File::deleteDirectory($projectRoot);

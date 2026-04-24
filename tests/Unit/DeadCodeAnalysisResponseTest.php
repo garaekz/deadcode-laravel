@@ -172,3 +172,39 @@ it('serializes the job reachability payload back to the wire shape', function ()
     expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
         ->toBe(deadcoreJobReachabilityPayload());
 });
+
+it('parses the phase 4 model-heavy symbol kinds and finding categories', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcorePhaseFourModelPayload());
+
+    expect($response->entrypoints)->toHaveCount(1)
+        ->and($response->entrypoints[0]->kind)->toBe('runtime_route')
+        ->and($response->symbols)->toHaveCount(5)
+        ->and(array_map(
+            static fn ($symbol) => $symbol->kind,
+            $response->symbols,
+        ))->toBe([
+            'model_method',
+            'model_scope',
+            'model_relationship',
+            'model_accessor',
+            'model_mutator',
+        ])
+        ->and(array_map(
+            static fn ($finding) => $finding->category,
+            $response->findings,
+        ))->toBe([
+            'unused_model_method',
+            'unused_model_scope',
+            'unused_model_relationship',
+            'unused_model_accessor',
+            'unused_model_mutator',
+        ])
+        ->and($response->removalPlan->changeSets)->toHaveCount(5);
+});
+
+it('serializes the phase 4 model-heavy payload back to the wire shape', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcorePhaseFourModelPayload());
+
+    expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
+        ->toBe(deadcorePhaseFourModelPayload());
+});
