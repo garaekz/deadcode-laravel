@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-use Deadcode\Console\Commands\DeadcodeAnalyzeCommand;
 use Deadcode\Runtime\Contracts\Task;
 use Deadcode\Runtime\Runtime;
 use Deadcode\Runtime\Supervisor\SupervisorTransport;
-use Symfony\Component\Console\Tester\CommandTester;
 
 it('streams progress while running deadcode analyze', function (): void {
     $runtime = new Runtime(new class implements SupervisorTransport
@@ -39,13 +37,12 @@ it('streams progress while running deadcode analyze', function (): void {
 
     app()->instance(Runtime::class, $runtime);
 
-    $tester = executeRuntimeAnalyzeCommand();
-
-    expect($tester->getStatusCode())->toBe(0)
-        ->and($tester->getDisplay())->toContain('Capturing Laravel runtime snapshot')
-        ->and($tester->getDisplay())->toContain('Invoking deadcore')
-        ->and($tester->getDisplay())->toContain('Findings: 12')
-        ->and($tester->getDisplay())->toContain('Report: storage/app/deadcode/report.json');
+    $this->artisan('deadcode:analyze')
+        ->expectsOutput('Capturing Laravel runtime snapshot')
+        ->expectsOutput('Invoking deadcore')
+        ->expectsOutputToContain('Findings: 12')
+        ->expectsOutputToContain('Report: storage/app/deadcode/report.json')
+        ->assertExitCode(0);
 });
 
 it('renders runtime failures and exits non-zero', function (): void {
@@ -59,19 +56,7 @@ it('renders runtime failures and exits non-zero', function (): void {
 
     app()->instance(Runtime::class, $runtime);
 
-    $tester = executeRuntimeAnalyzeCommand();
-
-    expect($tester->getStatusCode())->toBe(1)
-        ->and($tester->getDisplay())->toContain('deadcode supervisor transport failed');
+    $this->artisan('deadcode:analyze')
+        ->expectsOutputToContain('deadcode supervisor transport failed')
+        ->assertExitCode(1);
 });
-
-function executeRuntimeAnalyzeCommand(array $input = []): CommandTester
-{
-    $command = app()->make(DeadcodeAnalyzeCommand::class);
-    $command->setLaravel(app());
-
-    $tester = new CommandTester($command);
-    $tester->execute($input);
-
-    return $tester;
-}

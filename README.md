@@ -16,3 +16,23 @@ The Laravel package owns:
 - deadcore request orchestration
 
 The native supervisor owns process lifecycle, stdio framing, timeout enforcement, and crash handling.
+
+## Phase 1 Usage
+
+The current verified slice is controller reachability with local report rendering plus conservative staged removal and rollback.
+
+```bash
+php artisan deadcode:doctor
+php artisan deadcode:analyze
+php artisan deadcode:report --input=storage/app/deadcode/report.json --format=json
+php artisan deadcode:report --input=storage/app/deadcode/report.json --format=table
+php artisan deadcode:apply --input=storage/app/deadcode/report.json --dry-run
+php artisan deadcode:apply --input=storage/app/deadcode/report.json --stage
+php artisan deadcode:rollback
+```
+
+Current limits:
+
+- only controller and controller-method reachability is implemented
+- auto-removal is limited to high-confidence `unused_controller_method` findings with a matching removal plan
+- rollback stores only the latest staged change set
