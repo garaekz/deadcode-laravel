@@ -53,6 +53,7 @@ final class RemovalPlanner
 
         if (! in_array($finding->category, [
             'unused_command_class',
+            'unused_job_class',
             'unused_listener_class',
             'unused_subscriber_class',
         ], true)) {

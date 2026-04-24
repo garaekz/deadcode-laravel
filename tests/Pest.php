@@ -397,3 +397,62 @@ function deadcoreSubscriberReachabilityPayload(): array
         ],
     ];
 }
+
+function deadcoreJobReachabilityPayload(): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-job-reachability',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 35,
+            'cache_hits' => 2,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_job',
+                'symbol' => 'App\\Jobs\\ReachableShipmentReminder',
+                'source' => 'redis:emails',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'job_class',
+                'symbol' => 'App\\Jobs\\ReachableShipmentReminder',
+                'file' => 'app/Jobs/ReachableShipmentReminder.php',
+                'reachableFromRuntime' => true,
+                'startLine' => 9,
+                'endLine' => 16,
+            ],
+            [
+                'kind' => 'job_class',
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 9,
+                'endLine' => 16,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                'category' => 'unused_job_class',
+                'confidence' => 'high',
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'startLine' => 9,
+                'endLine' => 16,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => [
+                [
+                    'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                    'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                    'start_line' => 9,
+                    'end_line' => 16,
+                ],
+            ],
+        ],
+    ];
+}

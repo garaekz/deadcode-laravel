@@ -240,6 +240,52 @@ it('renders subscriber reachability categories from an input file', function () 
     File::deleteDirectory($projectRoot);
 });
 
+it('renders job reachability categories from an input file', function () {
+    [$projectRoot, $analysisPath] = createDeadcodeRemediationFixture(deadcoreJobReachabilityPayload());
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'json',
+    ]))->toBe(0);
+
+    $jsonPayload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($jsonPayload)->toMatchArray([
+        'contractVersion' => 'deadcode.report.v1',
+        'projectRoot' => $projectRoot,
+        'requestId' => 'req-job-reachability',
+        'status' => 'ok',
+        'summary' => [
+            'entrypointCount' => 1,
+            'symbolCount' => 2,
+            'reachableSymbolCount' => 1,
+            'unreachableSymbolCount' => 1,
+            'findingCount' => 1,
+            'removalChangeCount' => 1,
+        ],
+    ])->and(array_column($jsonPayload['entrypoints'], 'kind'))->toBe(['runtime_job'])
+        ->and(array_column($jsonPayload['symbols'], 'kind'))->toBe([
+            'job_class',
+            'job_class',
+        ])
+        ->and(array_column($jsonPayload['findings'], 'category'))->toBe([
+            'unused_job_class',
+        ]);
+
+    expect(Artisan::call('deadcode:report', [
+        '--input' => $analysisPath,
+        '--format' => 'table',
+    ]))->toBe(0);
+
+    $tableOutput = Artisan::output();
+
+    expect($tableOutput)->toContain('App\\Jobs\\UnusedShipmentReminder')
+        ->and($tableOutput)->toContain('unused_job_class')
+        ->and($tableOutput)->toContain('app/Jobs/UnusedShipmentReminder.php');
+
+    File::deleteDirectory($projectRoot);
+});
+
 it('requires an existing analysis input before rendering a deadcode report', function () {
     expect(Artisan::call('deadcode:report', [
         '--format' => 'json',
@@ -570,6 +616,113 @@ it('stages a high-confidence unused subscriber class removal from an input file'
 
 it('rolls back the latest staged unused subscriber class removal', function () {
     [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeSubscriberClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--stage' => true,
+    ]))->toBe(0);
+
+    expect(Artisan::call('deadcode:rollback'))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.rollback.v1',
+        'status' => 'rolled_back',
+        'changesRolledBack' => 1,
+    ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('plans a high-confidence unused job class removal in dry run when the removal plan is explicit and isolated', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeJobClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 1,
+        'changes' => [
+            [
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                'startLine' => 9,
+                'endLine' => 16,
+            ],
+        ],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents)
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeFalse();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('does not plan unused job class removal when the removal plan is not isolated', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeJobClassRemovalFixture(
+        changeSets: [
+            [
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                'start_line' => 9,
+                'end_line' => 16,
+            ],
+            [
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder::handle',
+                'start_line' => 11,
+                'end_line' => 15,
+            ],
+        ],
+    );
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--dry-run' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'dry_run',
+        'changesApplied' => 0,
+        'plannedChanges' => 0,
+        'changes' => [],
+    ])->and(file_get_contents($targetPath))->toBe($originalContents);
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('stages a high-confidence unused job class removal from an input file', function () {
+    [$projectRoot, $analysisPath, $targetPath] = createDeadcodeJobClassRemovalFixture();
+
+    expect(Artisan::call('deadcode:apply', [
+        '--input' => $analysisPath,
+        '--stage' => true,
+    ]))->toBe(0);
+
+    $payload = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($payload)->toMatchArray([
+        'contractVersion' => 'deadcode.apply.v1',
+        'status' => 'staged',
+        'changesApplied' => 1,
+        'plannedChanges' => 1,
+    ])->and(file_get_contents($targetPath))->toBe(deadcodeJobClassStagedContents())
+        ->and(is_file($projectRoot.'/storage/app/deadcode/rollback/latest.json'))->toBeTrue();
+
+    File::deleteDirectory($projectRoot);
+});
+
+it('rolls back the latest staged unused job class removal', function () {
+    [$projectRoot, $analysisPath, $targetPath, $originalContents] = createDeadcodeJobClassRemovalFixture();
 
     expect(Artisan::call('deadcode:apply', [
         '--input' => $analysisPath,
@@ -1311,6 +1464,121 @@ namespace App\Subscribers;
 
 use App\Events\OrderShipped;
 use Illuminate\Events\Dispatcher;
+
+
+PHP;
+}
+
+/**
+ * @param  list<array{file:string,symbol:string,start_line:int,end_line:int}>|null  $changeSets
+ */
+function createDeadcodeJobClassRemovalFixture(?array $changeSets = null): array
+{
+    $fileContents = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Bus\Queueable;
+
+final class UnusedShipmentReminder
+{
+    use Queueable;
+
+    public function handle(): void
+    {
+    }
+}
+PHP;
+
+    $projectRoot = sys_get_temp_dir().'/deadcode-job-removal-'.bin2hex(random_bytes(6));
+    $targetPath = $projectRoot.'/app/Jobs/UnusedShipmentReminder.php';
+    $analysisPath = $projectRoot.'/storage/app/deadcode/analysis.json';
+
+    File::ensureDirectoryExists(dirname($targetPath));
+    File::ensureDirectoryExists(dirname($analysisPath));
+
+    file_put_contents($targetPath, $fileContents);
+    file_put_contents(
+        $analysisPath,
+        json_encode(
+            deadcodeJobClassRemovalPayload($changeSets),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        ),
+    );
+
+    app()->setBasePath($projectRoot);
+    app()->useStoragePath($projectRoot.'/storage');
+
+    return [$projectRoot, $analysisPath, $targetPath, $fileContents];
+}
+
+/**
+ * @param  list<array{file:string,symbol:string,start_line:int,end_line:int}>|null  $changeSets
+ */
+function deadcodeJobClassRemovalPayload(?array $changeSets = null): array
+{
+    return [
+        'contractVersion' => 'deadcode.analysis.v1',
+        'requestId' => 'req-job-removal',
+        'status' => 'ok',
+        'meta' => [
+            'duration_ms' => 23,
+            'cache_hits' => 1,
+            'cache_misses' => 1,
+        ],
+        'entrypoints' => [
+            [
+                'kind' => 'runtime_job',
+                'symbol' => 'App\\Jobs\\ReachableShipmentReminder',
+                'source' => 'redis:emails',
+            ],
+        ],
+        'symbols' => [
+            [
+                'kind' => 'job_class',
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'reachableFromRuntime' => false,
+                'startLine' => 9,
+                'endLine' => 16,
+            ],
+        ],
+        'findings' => [
+            [
+                'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                'category' => 'unused_job_class',
+                'confidence' => 'high',
+                'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                'startLine' => 9,
+                'endLine' => 16,
+            ],
+        ],
+        'removalPlan' => [
+            'changeSets' => $changeSets ?? [
+                [
+                    'file' => 'app/Jobs/UnusedShipmentReminder.php',
+                    'symbol' => 'App\\Jobs\\UnusedShipmentReminder',
+                    'start_line' => 9,
+                    'end_line' => 16,
+                ],
+            ],
+        ],
+    ];
+}
+
+function deadcodeJobClassStagedContents(): string
+{
+    return <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Bus\Queueable;
 
 
 PHP;

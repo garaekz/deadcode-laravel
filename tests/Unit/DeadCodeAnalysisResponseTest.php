@@ -125,3 +125,26 @@ it('serializes the subscriber reachability payload back to the wire shape', func
     expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
         ->toBe(deadcoreSubscriberReachabilityPayload());
 });
+
+it('parses the job reachability symbol kind and finding category', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcoreJobReachabilityPayload());
+
+    expect($response->entrypoints)->toHaveCount(1)
+        ->and($response->entrypoints[0]->kind)->toBe('runtime_job')
+        ->and($response->entrypoints[0]->source)->toBe('redis:emails')
+        ->and($response->symbols)->toHaveCount(2)
+        ->and($response->symbols[0]->kind)->toBe('job_class')
+        ->and($response->symbols[0]->reachableFromRuntime)->toBeTrue()
+        ->and($response->symbols[1]->kind)->toBe('job_class')
+        ->and($response->symbols[1]->reachableFromRuntime)->toBeFalse()
+        ->and($response->findings)->toHaveCount(1)
+        ->and($response->findings[0]->category)->toBe('unused_job_class')
+        ->and($response->removalPlan->changeSets)->toHaveCount(1);
+});
+
+it('serializes the job reachability payload back to the wire shape', function () {
+    $response = DeadCodeAnalysisResponse::fromArray(deadcoreJobReachabilityPayload());
+
+    expect(json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
+        ->toBe(deadcoreJobReachabilityPayload());
+});
