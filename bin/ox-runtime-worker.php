@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use Deadcode\Runtime\Worker\WorkerBootstrap;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Foundation\Application;
 
 $autoloadPath = null;
@@ -60,7 +61,11 @@ if (! $app instanceof Container) {
 }
 
 if ($app instanceof Application && ! $app->isBooted()) {
-    $app->boot();
+    if ($app->bound(ConsoleKernel::class)) {
+        $app->make(ConsoleKernel::class)->bootstrap();
+    } else {
+        $app->boot();
+    }
 }
 
 $bootstrap = new WorkerBootstrap($app);
