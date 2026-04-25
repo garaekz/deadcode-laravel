@@ -14,25 +14,25 @@ jobs:
       matrix:
         include:
           - php: '8.2'
-            laravel: '^10.0'
-            testbench: '^8.0'
-            pest: '^2.34'
-            pest_plugin_laravel: '^2.4'
+            laravel: '>=10.0 <11.0'
+            testbench: '>=8.0 <9.0'
+            pest: '>=2.34 <3.0'
+            pest_plugin_laravel: '>=2.4 <3.0'
           - php: '8.2'
-            laravel: '^11.0'
-            testbench: '^9.0'
-            pest: '^3.8'
-            pest_plugin_laravel: '^3.2'
+            laravel: '>=11.0 <12.0'
+            testbench: '>=9.0 <10.0'
+            pest: '>=3.8.2 <4.0'
+            pest_plugin_laravel: '>=3.2 <4.0'
           - php: '8.2'
-            laravel: '^12.0'
-            testbench: '^10.0'
-            pest: '^3.8'
-            pest_plugin_laravel: '^3.2'
+            laravel: '>=12.0 <13.0'
+            testbench: '>=10.0 <11.0'
+            pest: '>=3.8.2 <4.0'
+            pest_plugin_laravel: '>=3.2 <4.0'
           - php: '8.3'
-            laravel: '^13.0'
-            testbench: '^11.0'
-            pest: '^4.0'
-            pest_plugin_laravel: '^4.0'
+            laravel: '>=13.0 <14.0'
+            testbench: '>=11.0 <12.0'
+            pest: '>=4.0 <5.0'
+            pest_plugin_laravel: '>=4.0 <5.0'
 
     steps:
       - uses: actions/checkout@v6
@@ -82,8 +82,8 @@ jobs:
 
       - name: Align dependency matrix
         run: |
-          composer require --no-update "illuminate/console:^12.0" "illuminate/routing:^12.0" "illuminate/support:^12.0"
-          composer require --dev --no-update "orchestra/testbench:^10.0" "pestphp/pest:^3.8" "pestphp/pest-plugin-laravel:^3.2"
+          composer require --no-update "illuminate/console:>=12.0 <13.0" "illuminate/routing:>=12.0 <13.0" "illuminate/support:>=12.0 <13.0"
+          composer require --dev --no-update "orchestra/testbench:>=10.0 <11.0" "pestphp/pest:>=3.8.2 <4.0" "pestphp/pest-plugin-laravel:>=3.2 <4.0"
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction
@@ -98,19 +98,19 @@ jobs:
         include:
           - os: ubuntu-latest
             php: '8.3'
-            laravel: '^12.0'
-            testbench: '^10.0'
-            pest: '^3.8'
-            pest_plugin_laravel: '^3.2'
+            laravel: '>=12.0 <13.0'
+            testbench: '>=10.0 <11.0'
+            pest: '>=3.8.2 <4.0'
+            pest_plugin_laravel: '>=3.2 <4.0'
             install_os: linux
             install_arch: amd64
             binary_name: deadcore
           - os: windows-latest
             php: '8.3'
-            laravel: '^12.0'
-            testbench: '^10.0'
-            pest: '^3.8'
-            pest_plugin_laravel: '^3.2'
+            laravel: '>=12.0 <13.0'
+            testbench: '>=10.0 <11.0'
+            pest: '>=3.8.2 <4.0'
+            pest_plugin_laravel: '>=3.2 <4.0'
             install_os: windows
             install_arch: amd64
             binary_name: deadcore.exe
@@ -173,9 +173,15 @@ jobs:
           $binary = Join-Path $installDir '${{ matrix.binary_name }}'
           & $binary --version
 
-          $request = Join-Path '${{ github.workspace }}' '_deps/deadcore/test/fixtures/contracts/deadcode/controller-basic.json'
+          $deadcoreRoot = Join-Path '${{ github.workspace }}' '_deps/deadcore'
+          $request = Join-Path $deadcoreRoot 'test/fixtures/contracts/deadcode/controller-basic.json'
           $output = Join-Path $env:RUNNER_TEMP 'deadcode-analysis.json'
-          & $binary --request $request --out $output
+          Push-Location $deadcoreRoot
+          try {
+            & $binary --request $request --out $output
+          } finally {
+            Pop-Location
+          }
 
           $payload = Get-Content -Raw -Path $output | ConvertFrom-Json
           if ($payload.contractVersion -ne 'deadcode.analysis.v1') {
