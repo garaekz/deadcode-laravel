@@ -5,15 +5,15 @@
 Install the package from Packagist:
 
 ```bash
-composer require deadcode/deadcode-laravel
+composer require oxhq/deadcode-laravel
 php artisan vendor:publish --tag=deadcode-config
 ```
 
 For development against the public GitHub repository instead of Packagist:
 
 ```bash
-composer config repositories.deadcode-laravel vcs https://github.com/garaekz/deadcode-laravel
-composer require deadcode/deadcode-laravel:^0.1.5
+composer config repositories.deadcode-laravel vcs https://github.com/oxhq/deadcode-laravel
+composer require oxhq/deadcode-laravel:^0.1.5
 php artisan vendor:publish --tag=deadcode-config
 ```
 
@@ -56,13 +56,13 @@ cargo test --locked
 ```env
 DEADCODE_SUPERVISOR_INSTALL_PATH=bin/deadcode-supervisor
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
-DEADCODE_SUPERVISOR_RELEASE_REPOSITORY=garaekz/go-supervisor
+DEADCODE_SUPERVISOR_RELEASE_REPOSITORY=oxhq/go-supervisor
 DEADCODE_SUPERVISOR_RELEASE_BASE_URL=https://github.com
 DEADCODE_SUPERVISOR_RELEASE_VERSION=v0.1.5
 DEADCODE_SUPERVISOR_TIMEOUT=300
 DEADCORE_BINARY=/absolute/path/to/deadcore
 DEADCORE_SOURCE_ROOT=/absolute/path/to/deadcore
-DEADCORE_RELEASE_REPOSITORY=garaekz/deadcore
+DEADCORE_RELEASE_REPOSITORY=oxhq/deadcore
 DEADCORE_WORKING_DIRECTORY=/absolute/path/to/your/laravel/app
 DEADCORE_TIMEOUT=120
 ```

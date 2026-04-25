@@ -92,7 +92,7 @@ If a release is missing those assets, the supported fallback is to configure `DE
 
 ## Real App Smoke
 
-- install `deadcode/deadcode-laravel` in at least one real Laravel app
+- install `oxhq/deadcode-laravel` in at least one real Laravel app
 - publish config
 - run `php artisan deadcode:install-supervisor v0.1.5`, or set `DEADCODE_SUPERVISOR_BINARY` when the host app cannot use the app-local installed supervisor path
 - run `php artisan deadcode:doctor`

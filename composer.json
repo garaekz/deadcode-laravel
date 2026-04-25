@@ -1,5 +1,5 @@
 {
-  "name": "deadcode/deadcode-laravel",
+  "name": "oxhq/deadcode-laravel",
   "description": "Laravel dead code pruning with evidence, staged deletion, and rollback",
   "type": "library",
   "license": "MIT",

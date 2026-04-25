@@ -44,7 +44,7 @@ it('processes a fixture task through the worker bootstrap', function (): void {
 it('locates composer autoload from an installed package layout', function (): void {
     $packageRoot = dirname(__DIR__, 3);
     $workspace = sys_get_temp_dir().'/deadcode-installed-worker-'.bin2hex(random_bytes(6));
-    $installedBin = $workspace.'/vendor/deadcode/deadcode-laravel/bin';
+    $installedBin = $workspace.'/vendor/oxhq/deadcode-laravel/bin';
     $bootstrapPath = $packageRoot.'/tests/Fixtures/Runtime/fixture-bootstrap-app.php';
 
     mkdir($installedBin, 0777, true);

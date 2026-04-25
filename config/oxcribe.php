@@ -10,7 +10,7 @@ return [
         'working_directory' => env('DEADCORE_WORKING_DIRECTORY'),
         'timeout' => (int) env('DEADCORE_TIMEOUT', 120),
         'release' => [
-            'repository' => env('DEADCORE_RELEASE_REPOSITORY', 'garaekz/deadcore'),
+            'repository' => env('DEADCORE_RELEASE_REPOSITORY', 'oxhq/deadcore'),
             'base_url' => env('DEADCORE_RELEASE_BASE_URL', 'https://github.com'),
             'version' => env('DEADCORE_RELEASE_VERSION'),
         ],

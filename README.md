@@ -27,15 +27,15 @@ php artisan deadcode:rollback
 Require the package from Packagist and publish configuration:
 
 ```bash
-composer require deadcode/deadcode-laravel
+composer require oxhq/deadcode-laravel
 php artisan vendor:publish --tag=deadcode-config
 ```
 
 For development against the public GitHub repository instead of Packagist:
 
 ```bash
-composer config repositories.deadcode-laravel vcs https://github.com/garaekz/deadcode-laravel
-composer require deadcode/deadcode-laravel:^0.1.5
+composer config repositories.deadcode-laravel vcs https://github.com/oxhq/deadcode-laravel
+composer require oxhq/deadcode-laravel:^0.1.5
 php artisan vendor:publish --tag=deadcode-config
 ```
 
