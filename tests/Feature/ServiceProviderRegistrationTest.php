@@ -2,16 +2,22 @@
 
 declare(strict_types=1);
 
+use Deadcode\DeadcodeServiceProvider;
 use Illuminate\Support\Facades\Artisan;
 use Oxhq\Oxcribe\OxcribeServiceProvider;
 
-it('registers the package service provider in the test application', function () {
-    if (! class_exists(OxcribeServiceProvider::class)) {
-        $this->markTestSkipped('OxcribeServiceProvider has not been created yet.');
+it('registers the package service provider through the public Deadcode identity', function () {
+    if (! class_exists(DeadcodeServiceProvider::class)) {
+        $this->markTestSkipped('DeadcodeServiceProvider has not been created yet.');
     }
 
-    expect(app()->getProvider(OxcribeServiceProvider::class))
-        ->toBeInstanceOf(OxcribeServiceProvider::class);
+    expect(app()->getProvider(DeadcodeServiceProvider::class))
+        ->toBeInstanceOf(DeadcodeServiceProvider::class);
+});
+
+it('keeps the legacy Oxcribe service provider available for compatibility', function () {
+    expect(class_exists(OxcribeServiceProvider::class))->toBeTrue()
+        ->and(is_subclass_of(DeadcodeServiceProvider::class, OxcribeServiceProvider::class))->toBeTrue();
 });
 
 it('registers the local deadcode command surface', function () {

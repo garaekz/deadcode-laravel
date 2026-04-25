@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Oxhq\Oxcribe\Tests;
 
+use Deadcode\DeadcodeServiceProvider;
 use Inertia\ServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
-use Oxhq\Oxcribe\OxcribeServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
     /**
-     * Register the package provider once the oxcribe package skeleton exists.
+     * Register the package provider through its public Deadcode identity.
      */
     protected function getPackageProviders($app): array
     {
         return [
-            OxcribeServiceProvider::class,
+            DeadcodeServiceProvider::class,
             ServiceProvider::class,
         ];
     }

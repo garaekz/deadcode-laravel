@@ -6,7 +6,7 @@ namespace Oxhq\Oxcribe\Console;
 
 use Deadcode\Support\SupervisorBinaryResolver;
 use Illuminate\Console\Command;
-use Oxhq\Oxcribe\Support\OxinferBinaryResolver;
+use Oxhq\Oxcribe\Support\DeadcoreBinaryResolver;
 use Oxhq\Oxcribe\Support\PackageVersion;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -24,7 +24,7 @@ final class DoctorCommand extends Command
         $analysisConfig = (array) config('oxcribe.analysis.scan', []);
         $projectRoot = $this->resolveProjectRoot($deadcoreConfig);
         $workingDirectory = (string) ($deadcoreConfig['working_directory'] ?? $projectRoot);
-        $binaryResolver = new OxinferBinaryResolver;
+        $binaryResolver = new DeadcoreBinaryResolver;
 
         $blocking = false;
 
@@ -81,7 +81,7 @@ final class DoctorCommand extends Command
         } catch (RuntimeException $exception) {
             $blocking = true;
             $suggestedPath = $binaryResolver->suggestedInstallPath($deadcoreConfig, $workingDirectory);
-            $this->report('FAIL', 'Deadcore binary', $this->normalizeBinaryError($exception->getMessage()));
+            $this->report('FAIL', 'Deadcore binary', $exception->getMessage());
             $sourceRoot = trim((string) ($deadcoreConfig['source_root'] ?? ''));
             $installCommand = sprintf('php artisan deadcode:install-binary %s', PackageVersion::TAG);
             if ($sourceRoot !== '') {
@@ -136,15 +136,6 @@ final class DoctorCommand extends Command
         $output = trim($process->getOutput());
 
         return $output !== '' ? $output : null;
-    }
-
-    private function normalizeBinaryError(string $message): string
-    {
-        return str_replace(
-            ['oxinfer', 'OXINFER', 'oxcribe.oxinfer'],
-            ['deadcore', 'DEADCORE', 'oxcribe.deadcore'],
-            $message,
-        );
     }
 
     private function report(string $status, string $label, string $message): void

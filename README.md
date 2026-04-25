@@ -28,7 +28,7 @@ Require the package and publish configuration:
 
 ```bash
 composer require deadcode/deadcode-laravel
-php artisan vendor:publish --tag=oxcribe-config
+php artisan vendor:publish --tag=deadcode-config
 ```
 
 Install or build the `deadcore` binary:

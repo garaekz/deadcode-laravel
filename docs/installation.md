@@ -4,10 +4,10 @@
 
 ```bash
 composer require deadcode/deadcode-laravel
-php artisan vendor:publish --tag=oxcribe-config
+php artisan vendor:publish --tag=deadcode-config
 ```
 
-The current package still exposes the inherited config publish tag while this incubator fork is being renamed internally.
+The package still accepts the inherited `oxcribe-config` tag for compatibility, but new installs should use `deadcode-config`.
 
 ## 2. Install Or Build The Analysis Engine
 
