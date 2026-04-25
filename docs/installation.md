@@ -46,12 +46,13 @@ cargo test --locked
 ```env
 DEADCODE_SUPERVISOR_INSTALL_PATH=bin/deadcode-supervisor
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
-DEADCODE_SUPERVISOR_RELEASE_REPOSITORY=deadcode/go-supervisor
+DEADCODE_SUPERVISOR_RELEASE_REPOSITORY=garaekz/go-supervisor
 DEADCODE_SUPERVISOR_RELEASE_BASE_URL=https://github.com
 DEADCODE_SUPERVISOR_RELEASE_VERSION=v0.1.4
 DEADCODE_SUPERVISOR_TIMEOUT=300
 DEADCORE_BINARY=/absolute/path/to/deadcore
 DEADCORE_SOURCE_ROOT=/absolute/path/to/deadcore
+DEADCORE_RELEASE_REPOSITORY=garaekz/deadcore
 DEADCORE_WORKING_DIRECTORY=/absolute/path/to/your/laravel/app
 DEADCORE_TIMEOUT=120
 ```
