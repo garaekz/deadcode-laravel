@@ -15,9 +15,10 @@ Fast path:
 
 ```bash
 php artisan deadcode:install-binary v0.1.4
+php artisan deadcode:install-supervisor v0.1.4
 ```
 
-That downloads the matching `deadcore` release binary when release assets are available, verifies the published checksum, and installs it into the app-local binary path used by the analysis stack.
+That downloads the matching `deadcore` and `deadcode-supervisor` release binaries when release assets are available, verifies the published checksums, and installs them into the app-local binary paths used by the analysis stack.
 
 Local source path:
 
@@ -43,7 +44,11 @@ cargo test --locked
 ## 3. Configure Binary Paths
 
 ```env
+DEADCODE_SUPERVISOR_INSTALL_PATH=bin/deadcode-supervisor
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
+DEADCODE_SUPERVISOR_RELEASE_REPOSITORY=deadcode/go-supervisor
+DEADCODE_SUPERVISOR_RELEASE_BASE_URL=https://github.com
+DEADCODE_SUPERVISOR_RELEASE_VERSION=v0.1.4
 DEADCODE_SUPERVISOR_TIMEOUT=300
 DEADCORE_BINARY=/absolute/path/to/deadcore
 DEADCORE_SOURCE_ROOT=/absolute/path/to/deadcore
@@ -51,7 +56,7 @@ DEADCORE_WORKING_DIRECTORY=/absolute/path/to/your/laravel/app
 DEADCORE_TIMEOUT=120
 ```
 
-`deadcode:analyze` uses `DEADCODE_SUPERVISOR_BINARY`; the supervisor owns the runtime task execution path.
+`deadcode:analyze` uses `DEADCODE_SUPERVISOR_BINARY`; when that is unset, the resolver uses `DEADCODE_SUPERVISOR_INSTALL_PATH` and appends `.exe` on Windows when needed. The supervisor owns the runtime task execution path.
 
 For local source development with the sibling Go supervisor checkout:
 
@@ -69,7 +74,7 @@ go test ./...
 go build -o bin\deadcode-supervisor.exe .\cmd\deadcode-supervisor
 ```
 
-Then point the Laravel app at the built binary:
+Then point the Laravel app at the built binary or install/copy it into the app-local supervisor path:
 
 ```env
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/go-supervisor/bin/deadcode-supervisor

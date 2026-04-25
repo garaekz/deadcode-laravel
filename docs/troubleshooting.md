@@ -18,6 +18,7 @@ That preflight checks:
 If the supervisor binary is outside the default path, configure it explicitly:
 
 ```env
+DEADCODE_SUPERVISOR_INSTALL_PATH=bin/deadcode-supervisor
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
 DEADCODE_SUPERVISOR_TIMEOUT=300
 ```
@@ -32,7 +33,13 @@ php artisan deadcode:doctor
 
 ### `Unable to find the supervisor binary`
 
-Set `DEADCODE_SUPERVISOR_BINARY` to the executable used by `deadcode:analyze`:
+Install the app-local supervisor binary:
+
+```bash
+php artisan deadcode:install-supervisor v0.1.4
+```
+
+Or set `DEADCODE_SUPERVISOR_BINARY` to the executable used by `deadcode:analyze`:
 
 ```env
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor

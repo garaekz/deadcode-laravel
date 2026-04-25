@@ -12,6 +12,7 @@ use Oxhq\Oxcribe\Bridge\ProcessDeadCodeClient;
 use Oxhq\Oxcribe\Console\ApplyCommand;
 use Oxhq\Oxcribe\Console\DoctorCommand;
 use Oxhq\Oxcribe\Console\InstallBinaryCommand;
+use Oxhq\Oxcribe\Console\InstallSupervisorCommand;
 use Oxhq\Oxcribe\Console\ReportCommand;
 use Oxhq\Oxcribe\Console\RollbackCommand;
 use Oxhq\Oxcribe\Contracts\PackageInventoryDetector;
@@ -66,6 +67,7 @@ class OxcribeServiceProvider extends ServiceProvider
                 DeadcodeAnalyzeCommand::class,
                 DoctorCommand::class,
                 InstallBinaryCommand::class,
+                InstallSupervisorCommand::class,
                 ReportCommand::class,
                 RollbackCommand::class,
             ]);

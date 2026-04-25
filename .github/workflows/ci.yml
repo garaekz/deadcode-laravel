@@ -125,11 +125,20 @@ jobs:
           repository: ${{ github.repository_owner }}/deadcore
           path: _deps/deadcore
 
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/go-supervisor
+          path: _deps/go-supervisor
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: composer:v2
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: _deps/go-supervisor/go.mod
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -172,3 +181,31 @@ jobs:
           if ($null -eq $payload.findings -or $null -eq $payload.removalPlan) {
             throw 'Analysis payload is missing findings or removalPlan.'
           }
+
+      - name: Build and smoke supervisor
+        shell: pwsh
+        run: |
+          $supervisorRoot = Join-Path '${{ github.workspace }}' '_deps/go-supervisor'
+          $installDir = Join-Path $env:RUNNER_TEMP 'deadcode-bin'
+          $binaryName = if ($env:RUNNER_OS -eq 'Windows') { 'deadcode-supervisor.exe' } else { 'deadcode-supervisor' }
+          $binary = Join-Path $installDir $binaryName
+
+          New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+          Push-Location $supervisorRoot
+          go test ./...
+          go build -o $binary ./cmd/deadcode-supervisor
+          Pop-Location
+
+          & $binary --version
+
+      - name: Prove package preflight with installed binaries
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'deadcode-bin'
+          $deadcoreName = '${{ matrix.binary_name }}'
+          $supervisorName = if ($env:RUNNER_OS -eq 'Windows') { 'deadcode-supervisor.exe' } else { 'deadcode-supervisor' }
+
+          $env:DEADCORE_BINARY = Join-Path $installDir $deadcoreName
+          $env:DEADCODE_SUPERVISOR_BINARY = Join-Path $installDir $supervisorName
+
+          php vendor/bin/testbench deadcode:doctor --project-root="${{ github.workspace }}"

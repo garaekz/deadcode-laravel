@@ -35,6 +35,7 @@ Install or build the `deadcore` binary:
 
 ```bash
 php artisan deadcode:install-binary v0.1.4
+php artisan deadcode:install-supervisor v0.1.4
 ```
 
 For local development against a source checkout:
@@ -46,6 +47,7 @@ php artisan deadcode:install-binary v0.1.4 --source-root=/absolute/path/to/deadc
 Configure explicit binary paths when defaults are not valid for the host app:
 
 ```env
+DEADCODE_SUPERVISOR_INSTALL_PATH=bin/deadcode-supervisor
 DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/deadcode-supervisor
 DEADCODE_SUPERVISOR_TIMEOUT=300
 DEADCORE_BINARY=/absolute/path/to/deadcore

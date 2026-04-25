@@ -27,6 +27,7 @@ it('registers the local deadcode command surface', function () {
         ->toContain(
             'deadcode:doctor',
             'deadcode:install-binary',
+            'deadcode:install-supervisor',
             'deadcode:analyze',
             'deadcode:report',
             'deadcode:apply',

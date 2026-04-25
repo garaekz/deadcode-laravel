@@ -10,7 +10,8 @@
 - verify the GitHub Actions matrix passes for Laravel `10`, `11`, `12` and `13`
 - verify the GitHub Actions Windows smoke job passes
 - verify the GitHub Actions install-proof job builds `deadcore` from the sibling GitHub repo, runs the installed binary, and confirms `deadcode.analysis.v1`
-- verify the sibling `go-supervisor` binary builds and can relay a task through `bin/ox-runtime-worker.php`
+- verify the GitHub Actions install-proof job builds the sibling `go-supervisor` binary and runs `deadcode:doctor` with both app-local binaries
+- verify `deadcode:install-supervisor` still matches the current `go-supervisor` release/checksum contract
 
 ## Local Install Proof
 
@@ -39,7 +40,15 @@ The output payload must keep `contractVersion` equal to `deadcode.analysis.v1`.
 
 ## Local Doctor Proof
 
-`deadcode:doctor` also needs a supervisor binary. If the native supervisor is not part of the current release candidate, use a tiny local executable test double only for preflight proof and label the result honestly:
+`deadcode:doctor` also needs a supervisor binary. Install the release artifact when available:
+
+```bash
+vendor/bin/testbench deadcode:install-supervisor v0.1.4 \
+  --path=/tmp/deadcode-proof/bin/deadcode-supervisor \
+  --force
+```
+
+If the native supervisor release is not available yet, use a locally built sibling binary for owned-workspace proof and label the result honestly. A tiny executable test double is only acceptable for resolver/preflight proof:
 
 ```bash
 DEADCORE_BINARY=/tmp/deadcode-proof/bin/deadcore \
@@ -76,11 +85,16 @@ Then run package preflight with `DEADCODE_SUPERVISOR_BINARY` pointing to that bi
 
 If a release is missing those assets, the supported fallback is to configure `DEADCORE_SOURCE_ROOT` and build from source locally.
 
+`deadcode:install-supervisor` expects the tagged `go-supervisor` release to expose:
+
+- platform binaries named `deadcode-supervisor_<tag>_<os>_<arch>[.exe]`
+- a `checksums.txt` file in the same release
+
 ## Real App Smoke
 
 - install `deadcode/deadcode-laravel` in at least one real Laravel app
 - publish config
-- set `DEADCODE_SUPERVISOR_BINARY` when the host app cannot use the default `../go-supervisor/bin/deadcode-supervisor` path
+- run `php artisan deadcode:install-supervisor v0.1.4`, or set `DEADCODE_SUPERVISOR_BINARY` when the host app cannot use the app-local installed supervisor path
 - run `php artisan deadcode:doctor`
 - run `php artisan deadcode:analyze`
 - run `php artisan deadcode:report --input=storage/app/deadcode/analysis.json --format=json --write=storage/app/deadcode-report.json --pretty`
