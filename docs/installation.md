@@ -53,6 +53,30 @@ DEADCORE_TIMEOUT=120
 
 `deadcode:analyze` uses `DEADCODE_SUPERVISOR_BINARY`; the supervisor owns the runtime task execution path.
 
+For local source development with the sibling Go supervisor checkout:
+
+```bash
+cd /absolute/path/to/go-supervisor
+go test ./...
+go build -o bin/deadcode-supervisor ./cmd/deadcode-supervisor
+```
+
+On Windows:
+
+```powershell
+cd C:\path\to\go-supervisor
+go test ./...
+go build -o bin\deadcode-supervisor.exe .\cmd\deadcode-supervisor
+```
+
+Then point the Laravel app at the built binary:
+
+```env
+DEADCODE_SUPERVISOR_BINARY=/absolute/path/to/go-supervisor/bin/deadcode-supervisor
+```
+
+The supervisor runs the PHP worker from the installed package by default. If your layout is non-standard, set `DEADCODE_WORKER_SCRIPT` to the package worker script and `DEADCODE_WORKER_BOOTSTRAP` to the target Laravel app's `bootstrap/app.php`.
+
 If the `deadcore` binary is already on `PATH`, `DEADCORE_BINARY` can stay as `deadcore`. After `deadcode:install-binary`, an absolute `DEADCORE_BINARY` path is usually unnecessary.
 
 ## 4. Run Analysis

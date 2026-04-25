@@ -41,6 +41,44 @@ it('processes a fixture task through the worker bootstrap', function (): void {
     ]);
 });
 
+it('locates composer autoload from an installed package layout', function (): void {
+    $packageRoot = dirname(__DIR__, 3);
+    $workspace = sys_get_temp_dir().'/deadcode-installed-worker-'.bin2hex(random_bytes(6));
+    $installedBin = $workspace.'/vendor/deadcode/deadcode-laravel/bin';
+    $bootstrapPath = $packageRoot.'/tests/Fixtures/Runtime/fixture-bootstrap-app.php';
+
+    mkdir($installedBin, 0777, true);
+    copy($packageRoot.'/bin/ox-runtime-worker.php', $installedBin.'/ox-runtime-worker.php');
+    file_put_contents(
+        $workspace.'/vendor/autoload.php',
+        '<?php require '.var_export($packageRoot.'/vendor/autoload.php', true).';'.PHP_EOL,
+    );
+
+    $process = new Process([
+        PHP_BINARY,
+        $installedBin.'/ox-runtime-worker.php',
+        '--bootstrap='.$bootstrapPath,
+        '--once',
+    ], $workspace);
+
+    $process->setInput(FrameCodec::encode([
+        'type' => 'task.run',
+        'taskClass' => 'Tests\\Fixtures\\Runtime\\FixtureTask',
+        'payload' => ['name' => 'installed'],
+    ]));
+
+    $process->mustRun();
+
+    $frame = FrameCodec::decode($process->getOutput());
+
+    expect($frame['type'])->toBe('task.completed');
+    expect($frame['result']['data'])->toBe([
+        'message' => 'hello installed',
+    ]);
+
+    \Illuminate\Support\Facades\File::deleteDirectory($workspace);
+});
+
 it('fails deterministically when the task class does not implement the runtime task contract', function (): void {
     $bootstrap = new WorkerBootstrap(app());
 

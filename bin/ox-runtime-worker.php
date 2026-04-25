@@ -7,7 +7,24 @@ use Deadcode\Runtime\Worker\WorkerBootstrap;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Foundation\Application;
 
-require __DIR__.'/../vendor/autoload.php';
+$autoloadPath = null;
+
+foreach ([
+    __DIR__.'/../vendor/autoload.php',
+    __DIR__.'/../../../autoload.php',
+    getcwd().'/vendor/autoload.php',
+] as $candidate) {
+    if (is_file($candidate)) {
+        $autoloadPath = $candidate;
+        break;
+    }
+}
+
+if (! is_string($autoloadPath)) {
+    throw new \RuntimeException('The worker could not locate Composer autoload. Run it from a Laravel app or set the worker script path to an installed package copy.');
+}
+
+require $autoloadPath;
 
 $bootstrapPath = null;
 

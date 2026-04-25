@@ -10,6 +10,7 @@
 - verify the GitHub Actions matrix passes for Laravel `10`, `11`, `12` and `13`
 - verify the GitHub Actions Windows smoke job passes
 - verify the GitHub Actions install-proof job builds `deadcore` from the sibling GitHub repo, runs the installed binary, and confirms `deadcode.analysis.v1`
+- verify the sibling `go-supervisor` binary builds and can relay a task through `bin/ox-runtime-worker.php`
 
 ## Local Install Proof
 
@@ -47,6 +48,17 @@ vendor/bin/testbench deadcode:doctor --project-root=/absolute/path/to/laravel-ap
 ```
 
 That proves package preflight wiring and binary resolution. It does not prove `deadcode:analyze` end to end unless the real supervisor and a real Laravel app are used.
+
+When the sibling Go supervisor is available, prefer proving the real binary instead of the test double:
+
+```bash
+cd /absolute/path/to/go-supervisor
+go test ./...
+go build -o bin/deadcode-supervisor ./cmd/deadcode-supervisor
+bin/deadcode-supervisor --version
+```
+
+Then run package preflight with `DEADCODE_SUPERVISOR_BINARY` pointing to that binary.
 
 ## Package Metadata
 
